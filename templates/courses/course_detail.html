@@ -1,0 +1,130 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ course.title }} — LMS{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
+  <div>
+    <h2>{{ course.title }}</h2>
+    <p class="text-muted">
+      {{ course.get_language_display }}
+      {% if course.instructor %} &middot; Instructor: <strong>{{ course.instructor.username }}</strong>{% else %} &middot; <span class="text-danger">No instructor assigned</span>{% endif %}
+    </p>
+  </div>
+
+  <div class="d-flex gap-2 flex-wrap">
+    {% if user.role == "admin" %}
+    <a href="{% url "assign-instructor" course.id %}" class="btn btn-outline-warning btn-sm">
+      <i class="bi bi-person-badge me-1"></i>Assign Instructor
+    </a>
+    <a href="{% url "enroll-student" course.id %}" class="btn btn-outline-success btn-sm">
+      <i class="bi bi-person-plus me-1"></i>Assign Student
+    </a>
+    <a href="{% url "upload-video" %}?course={{ course.id }}" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-cloud-upload me-1"></i>Upload Video
+    </a>
+    <a href="{% url "delete-course-content" course.id %}" class="btn btn-outline-danger btn-sm">
+      <i class="bi bi-trash3 me-1"></i>Delete Content
+    </a>
+    {% elif user.role == "instructor" %}
+    {% if not course_locked %}
+    <a href="{% url "upload-video" %}?course={{ course.id }}" class="btn btn-primary btn-sm">
+      <i class="bi bi-cloud-upload me-1"></i>Upload Video
+    </a>
+    {% else %}
+    <span class="btn btn-secondary btn-sm disabled" title="Course locked: 1 video + study material uploaded">
+      <i class="bi bi-lock-fill me-1"></i>Content Locked
+    </span>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+{% if course.description %}
+  <p>{{ course.description }}</p>
+{% endif %}
+
+<!-- Instructor course-locked notice -->
+{% if user.role == "instructor" and course_locked %}
+<div class="alert alert-info py-2 d-flex align-items-center gap-2 mb-3">
+  <i class="bi bi-lock-fill flex-shrink-0"></i>
+  <span style="font-size:.875rem;">
+    This course has 1 video and 1 study material uploaded. Content is now locked — contact an admin to make changes.
+  </span>
+</div>
+{% endif %}
+
+<!-- Enrollment status banner for students -->
+{% if user.role == "student" %}
+  {% if enrolled %}
+  <div class="alert alert-success py-2 d-flex align-items-center gap-2">
+    <i class="bi bi-patch-check-fill"></i>
+    <span>You are enrolled in this course. All study material and quizzes are available to you.</span>
+  </div>
+  {% else %}
+  <div class="alert alert-warning py-2 d-flex align-items-center gap-2">
+    <i class="bi bi-lock-fill flex-shrink-0"></i>
+    <span>You are not enrolled in this course. Contact your admin to get access.</span>
+  </div>
+  {% endif %}
+{% endif %}
+
+<!-- Video / Study Material list -->
+<h4 class="mt-4">
+  <i class="bi bi-collection-play me-1"></i>Study Material
+  <span class="text-muted fw-normal" style="font-size:.85rem;">({{ videos.count }})</span>
+</h4>
+
+{% if videos %}
+  {% if user.role == "student" and not enrolled %}
+  <div style="position:relative;">
+    <div style="filter:blur(3px);pointer-events:none;user-select:none;" aria-hidden="true">
+      <div class="list-group mt-2">
+        {% for v in videos %}
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <strong>{{ v.title }}</strong>
+            <small class="text-muted ms-2">{{ v.get_language_code_display }}</small>
+          </div>
+          <span class="badge bg-{{ v.status_badge_class }}">{{ v.get_status_display }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+      <div class="card p-4 text-center shadow" style="max-width:340px;">
+        <i class="bi bi-lock-fill text-warning" style="font-size:2rem;"></i>
+        <p class="fw-semibold mt-2 mb-1">Content Locked</p>
+        <p class="text-muted small mb-0">Ask your admin to enroll you in this course.</p>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="list-group mt-2">
+    {% for v in videos %}
+    <a href="{% url "video-detail" v.id %}"
+       class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+      <div>
+        <strong>{{ v.title }}</strong>
+        <small class="text-muted ms-2">{{ v.get_language_code_display }}</small>
+        {% if v.status == "UPLOADED" %}
+        <span class="badge bg-warning text-dark ms-2" style="font-size:.65rem;">Awaiting Material</span>
+        {% endif %}
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        {% for quiz in v.quizzes.all %}{% if quiz.is_published %}
+        <span class="badge bg-success" style="font-size:.65rem;">
+          <i class="bi bi-question-circle me-1"></i>Quiz
+        </span>
+        {% endif %}{% endfor %}
+        <span class="badge bg-{{ v.status_badge_class }}">{{ v.get_status_display }}</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+{% else %}
+  <p class="text-muted mt-2">No study material uploaded yet.</p>
+{% endif %}
+
+{% endblock %}

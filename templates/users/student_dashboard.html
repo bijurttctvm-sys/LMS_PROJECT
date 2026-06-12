@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% block title %}Student Dashboard — LMS{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h4 class="mb-0 fw-bold">Welcome back, {{ user.first_name|default:user.username }}! 👋</h4>
+    <p class="text-muted mb-0 mt-1" style="font-size:.875rem;">Here's what's happening with your learning today.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'request-session' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-calendar-plus me-1"></i>Request Session
+    </a>
+    <a href="{% url 'course-list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-compass me-1"></i>Browse Courses
+    </a>
+  </div>
+</div>
+
+<!-- ── Choose slot alert ─────────────────────────────────────────────────── -->
+{% for cs in slots_to_choose %}
+<div class="alert alert-info d-flex align-items-center gap-3 mb-3" role="alert">
+  <i class="bi bi-bell-fill flex-shrink-0"></i>
+  <div class="flex-grow-1">
+    <strong>Action needed:</strong> Your instructor proposed time slots for
+    {% if cs.course %}<strong>{{ cs.course.title }}</strong>{% else %}your doubt session{% endif %}.
+  </div>
+  <a href="{% url 'choose-slot' cs.id %}" class="btn btn-info btn-sm flex-shrink-0">Choose Slot</a>
+</div>
+{% endfor %}
+
+{% if pending_request %}
+<div class="alert alert-warning d-flex align-items-center gap-3 mb-3" role="alert">
+  <i class="bi bi-hourglass-split flex-shrink-0"></i>
+  <div class="flex-grow-1">
+    <strong>Pending request:</strong> Your doubt session request is waiting for instructor response.
+  </div>
+  <a href="{% url 'my-sessions' %}" class="btn btn-outline-warning btn-sm flex-shrink-0">View</a>
+</div>
+{% endif %}
+
+<!-- ── Upcoming Doubt Session banner ──────────────────────────────────────── -->
+{% if upcoming_session %}
+{% load tz %}
+<div class="card mb-4" style="background:linear-gradient(135deg,#1a3a6b,#2d6be4);color:#fff;border:none;">
+  <div class="card-body d-flex align-items-center gap-3 flex-wrap">
+    <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.15);
+                display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;">
+      <i class="bi bi-camera-video-fill"></i>
+    </div>
+    <div class="flex-grow-1">
+      <div class="fw-semibold" style="font-size:.95rem;">Upcoming Doubt Session</div>
+      <div style="font-size:.85rem;opacity:.85;">
+        with {{ upcoming_session.instructor.get_full_name|default:upcoming_session.instructor.username }}
+        &middot;
+        {% localtime on %}
+        {{ upcoming_session.slot.slot_datetime|date:"l, M j" }} at {{ upcoming_session.slot.slot_datetime|date:"g:i A" }}
+        {% endlocaltime %}
+      </div>
+    </div>
+    <div class="d-flex gap-2 flex-shrink-0">
+      {% if upcoming_session.meet_url %}
+      <a href="{{ upcoming_session.meet_url }}" target="_blank"
+         class="btn btn-sm" style="background:#fff;color:#1a3a6b;font-weight:600;">
+        <i class="bi bi-camera-video me-1"></i>Join Meet
+      </a>
+      {% endif %}
+      <a href="{% url 'my-sessions' %}" class="btn btn-sm btn-outline-light">Details</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+
+  <!-- ── Left column ──────────────────────────────────────────────────────── -->
+  <div class="col-lg-8">
+
+    <!-- My Courses -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h6 class="fw-bold mb-0"><i class="bi bi-journal-bookmark me-2 text-primary"></i>My Courses</h6>
+          <a href="{% url 'my-courses' %}" class="btn btn-outline-primary btn-sm">View All</a>
+        </div>
+
+        {% if enrollments %}
+        <div class="row g-3">
+          {% for enrollment in enrollments %}
+          <div class="col-sm-6">
+            <div class="p-3 rounded-3 h-100" style="background:#f8f9fb;border:1px solid #e9ecef;">
+              <div class="d-flex align-items-start gap-2 mb-2">
+                <div style="width:36px;height:36px;border-radius:8px;background:#e8f0fe;
+                            display:flex;align-items:center;justify-content:center;
+                            color:#1a73e8;font-size:.95rem;flex-shrink:0;">
+                  <i class="bi bi-book"></i>
+                </div>
+                <div class="overflow-hidden">
+                  <a href="{% url 'course-detail' enrollment.course.id %}"
+                     class="fw-semibold text-dark text-decoration-none d-block text-truncate"
+                     style="font-size:.88rem;">
+                    {{ enrollment.course.title }}
+                  </a>
+                  <span class="text-muted" style="font-size:.75rem;">
+                    {{ enrollment.course.instructor.username|default:"No instructor" }}
+                  </span>
+                </div>
+              </div>
+              <div class="d-flex align-items-center gap-2 mt-2">
+                <span class="badge bg-light text-dark border" style="font-size:.7rem;">
+                  <i class="bi bi-play-circle me-1"></i>{{ enrollment.course.videos.count }} video{{ enrollment.course.videos.count|pluralize }}
+                </span>
+                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:.7rem;">
+                  Active
+                </span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+          <i class="bi bi-journal-x" style="font-size:2rem;opacity:.4;"></i>
+          <p class="mt-2 mb-1" style="font-size:.875rem;">Not enrolled in any courses yet.</p>
+          <a href="{% url 'course-list' %}" class="btn btn-primary btn-sm mt-1">Browse Courses</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Quiz Scores -->
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h6 class="fw-bold mb-0"><i class="bi bi-patch-check me-2 text-warning"></i>Recent Quiz Results</h6>
+          <a href="{% url 'student-quiz-list' %}" class="btn btn-outline-warning btn-sm">All Quizzes</a>
+        </div>
+
+        {% if recent_attempts %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0" style="font-size:.855rem;">
+            <thead class="table-light">
+              <tr>
+                <th>Quiz</th>
+                <th>Course</th>
+                <th class="text-center">Score</th>
+                <th class="text-center">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for attempt in recent_attempts %}
+              <tr>
+                <td>
+                  <a href="{% url 'quiz-results' attempt.quiz.id %}" class="text-dark text-decoration-none fw-semibold">
+                    {{ attempt.quiz.title|truncatechars:30 }}
+                  </a>
+                </td>
+                <td class="text-muted">{{ attempt.quiz.video.course.title|default:"—"|truncatechars:22 }}</td>
+                <td class="text-center">
+                  <span class="fw-bold">{{ attempt.score }}/{{ attempt.total_questions }}</span>
+                  <div class="progress mt-1" style="height:4px;">
+                    <div class="progress-bar {% if attempt.passed %}bg-success{% else %}bg-danger{% endif %}"
+                         style="width:{{ attempt.percentage }}%"></div>
+                  </div>
+                </td>
+                <td class="text-center">
+                  {% if attempt.passed %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">
+                    <i class="bi bi-check-circle me-1"></i>Passed
+                  </span>
+                  {% else %}
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                    <i class="bi bi-x-circle me-1"></i>Not Passed
+                  </span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+          <i class="bi bi-question-circle" style="font-size:2rem;opacity:.4;"></i>
+          <p class="mt-2 mb-0" style="font-size:.875rem;">No quiz attempts yet.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div><!-- /col-lg-8 -->
+
+  <!-- ── Right column ─────────────────────────────────────────────────────── -->
+  <div class="col-lg-4">
+
+    <!-- Quick stats -->
+    <div class="row g-3 mb-4">
+      <div class="col-6">
+        <div class="card text-center p-3">
+          <div class="fw-bold" style="font-size:1.75rem;color:#1a73e8;">
+            {{ enrollments|length }}
+          </div>
+          <div class="text-muted" style="font-size:.75rem;">Courses</div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="card text-center p-3">
+          <div class="fw-bold" style="font-size:1.75rem;color:#188038;">
+            {{ recent_attempts|length }}
+          </div>
+          <div class="text-muted" style="font-size:.75rem;">Quiz Attempts</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Doubt session shortcut -->
+    <div class="card mb-4" style="border-left:4px solid #6f42c1;">
+      <div class="card-body">
+        <h6 class="fw-bold mb-1"><i class="bi bi-person-video3 me-2" style="color:#6f42c1;"></i>Doubt Sessions</h6>
+        <p class="text-muted mb-3" style="font-size:.82rem;">Book a one-on-one with your instructor via Google Meet.</p>
+        {% if upcoming_session %}
+        <div class="alert alert-primary py-2 mb-3" style="font-size:.8rem;">
+          <i class="bi bi-calendar-check me-1"></i>
+          {% load tz %}
+          Next: {% localtime on %}{{ upcoming_session.slot.slot_datetime|date:"M j @ g:i A" }}{% endlocaltime %}
+        </div>
+        {% endif %}
+        <div class="d-grid gap-2">
+          <a href="{% url 'request-session' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-calendar-plus me-1"></i>Request Session
+          </a>
+          <a href="{% url 'my-sessions' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-clock-history me-1"></i>View History
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Language preference -->
+    <div class="card">
+      <div class="card-body">
+        <h6 class="fw-bold mb-2"><i class="bi bi-translate me-2 text-info"></i>Learning Language</h6>
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span class="badge bg-info text-white" style="font-size:.8rem;">
+            {{ user.get_preferred_language_display }}
+          </span>
+          <span class="text-muted" style="font-size:.8rem;">preferred</span>
+        </div>
+        <a href="{% url 'profile' %}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-pencil me-1"></i>Edit Profile
+        </a>
+      </div>
+    </div>
+
+  </div><!-- /col-lg-4 -->
+</div>
+{% endblock %}

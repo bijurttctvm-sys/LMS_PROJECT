@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% block title %}{{ video.title }} — LMS{% endblock %}
+{% block page_title %}{{ video.title|truncatechars:40 }}{% endblock %}
+
+{% comment %}Make the chatbot aware of this video's course{% endcomment %}
+{% with chatbot_course_id=video.course.id %}{% endwith %}
+
+{% block extra_head %}
+<style>
+  /* ── Two-column layout ─────────────────────────────────────────────────── */
+  .video-wrap {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 1.25rem;
+    align-items: start;
+  }
+  @media (max-width: 1100px) {
+    .video-wrap { grid-template-columns: 1fr; }
+    .transcript-col { order: 2; }
+    .video-col      { order: 1; }
+  }
+
+  /* ── Video player ──────────────────────────────────────────────────────── */
+  #player {
+    width: 100%;
+    border-radius: 10px;
+    background: #000;
+    max-height: 460px;
+    display: block;
+  }
+  .player-placeholder {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #1a1d23;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: #6c757d; font-size: .9rem; gap: .5rem;
+  }
+
+  /* ── Transcript panel ──────────────────────────────────────────────────── */
+  .transcript-panel {
+    max-height: 70vh;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+  }
+  .transcript-panel::-webkit-scrollbar { width: 5px; }
+  .transcript-panel::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 10px; }
+
+  .lang-panel { display: none; }
+  .lang-panel.active { display: block; }
+
+  .chunk-row {
+    cursor: pointer;
+    border-radius: 6px;
+    padding: .4rem .6rem;
+    transition: background .15s;
+    font-size: .82rem;
+  }
+  .chunk-row:hover { background: #e8f0fe; }
+  .chunk-row.playing { background: #d1e7dd !important; }
+
+  /* ── Status badge ──────────────────────────────────────────────────────── */
+  .status-badge-lg {
+    font-size: .85rem;
+    padding: .3em .75em;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+
+  /* ── Language toggle ───────────────────────────────────────────────────── */
+  .lang-toggle-btn {
+    border: 1.5px solid #dee2e6;
+    background: #fff;
+    color: #495057;
+    font-size: .82rem;
+    font-weight: 600;
+    padding: .3rem .85rem;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .lang-toggle-btn.active {
+    background: #0d6efd; color: #fff; border-color: #0d6efd;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Page header ────────────────────────────────────────────────────────── -->
+<div class="d-flex align-items-start justify-content-between gap-3 mb-3 flex-wrap">
+  <div>
+    <nav aria-label="breadcrumb" style="font-size:.8rem;">
+      <ol class="breadcrumb mb-1">
+        <li class="breadcrumb-item"><a href="{% url 'course-detail' video.course.id %}">{{ video.course.title }}</a></li>
+        <li class="breadcrumb-item active text-truncate" style="max-width:260px;">{{ video.title }}</li>
+      </ol>
+    </nav>
+    <h4 class="mb-0 fw-bold">{{ video.title }}</h4>
+    <p class="text-muted mt-1 mb-0" style="font-size:.85rem;">
+      {{ video.get_language_code_display }}
+      {% if video.detected_language %} &middot; Detected: <strong>{{ video.detected_language }}</strong>{% endif %}
+      {% if video.duration_seconds %} &middot; {{ video.duration_seconds|floatformat:0 }}s{% endif %}
+    </p>
+  </div>
+  <div class="d-flex align-items-center gap-2 flex-shrink-0 flex-wrap">
+    <span class="badge status-badge-lg bg-{{ video.status_badge_class }}" id="status-badge">
+      {{ video.get_status_display }}
+    </span>
+    {% if user.role == 'admin' or user.role == 'instructor' %}
+      {% if video.status == 'READY' %}
+      <form method="post" action="{% url 'generate-quiz' video.id %}" class="d-inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-warning btn-sm"
+                onclick="return confirm('Generate AI quiz questions for this video?')">
+          <i class="bi bi-robot me-1"></i>Generate Quiz
+        </button>
+      </form>
+      {% endif %}
+      {% if video.quiz_drafts.count %}
+      <a href="{% url 'quiz-draft-list' %}" class="btn btn-warning btn-sm">
+        <i class="bi bi-patch-check me-1"></i>Review Drafts ({{ video.quiz_drafts.count }})
+      </a>
+      {% endif %}
+    {% endif %}
+    {% for quiz in video.quizzes.all %}
+      {% if quiz.is_published and user.role == 'student' %}
+      <a href="{% url 'take-quiz' quiz.id %}" class="btn btn-success btn-sm">
+        <i class="bi bi-question-circle me-1"></i>Take Quiz
+      </a>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+{% if video.description %}
+<p class="text-muted mb-3" style="font-size:.9rem;">{{ video.description }}</p>
+{% endif %}
+
+<!-- ── Status alerts ──────────────────────────────────────────────────────── -->
+{% if video.status == 'UPLOADED' %}
+<div class="alert alert-warning d-flex align-items-center justify-content-between gap-3 mb-3 py-2 flex-wrap">
+  <div class="d-flex align-items-center gap-2">
+    <i class="bi bi-upload flex-shrink-0"></i>
+    <span>No study material yet. Upload a PDF, Word, or PowerPoint file to enable the chatbot, quiz generation, and search.</span>
+  </div>
+  {% if user.role == 'admin' or user.role == 'instructor' %}
+  <a href="{% url 'upload-material' video.id %}" class="btn btn-warning btn-sm flex-shrink-0">
+    <i class="bi bi-file-earmark-arrow-up me-1"></i>Upload Study Material
+  </a>
+  {% endif %}
+</div>
+{% elif video.status == 'PROCESSING' %}
+<div class="alert alert-info d-flex align-items-center gap-2 mb-3 py-2" id="processing-alert">
+  <div class="spinner-border spinner-border-sm text-info flex-shrink-0" role="status"></div>
+  <span>Generating search index and PDF — this may take a minute.</span>
+</div>
+{% elif video.status == 'FAILED' %}
+<div class="alert alert-danger d-flex align-items-center justify-content-between gap-3 mb-3 py-2 flex-wrap">
+  <div><i class="bi bi-exclamation-triangle me-2"></i>Processing failed. Re-upload the study material to try again.</div>
+  {% if user.role == 'admin' or user.role == 'instructor' %}
+  <a href="{% url 'upload-material' video.id %}" class="btn btn-danger btn-sm flex-shrink-0">
+    <i class="bi bi-arrow-repeat me-1"></i>Re-upload Material
+  </a>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ── Two-column main layout ─────────────────────────────────────────────── -->
+<div class="video-wrap">
+
+  <!-- ── Left: Video player + meta ──────────────────────────────────────── -->
+  <div class="video-col">
+    <div class="card p-0 overflow-hidden mb-3">
+      {% if signed_url %}
+      <video id="player" controls preload="metadata">
+        <source src="{{ signed_url }}" type="video/mp4">
+        Your browser does not support HTML5 video.
+      </video>
+      {% else %}
+      <div class="player-placeholder">
+        {% if video.video_key %}
+        <i class="bi bi-exclamation-circle"></i> Signed URL unavailable (check R2 credentials)
+        {% else %}
+        <i class="bi bi-camera-video-off"></i> No video file attached yet
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Meta row -->
+    <div class="d-flex gap-3 text-muted flex-wrap mb-3" style="font-size:.8rem;">
+      <span><i class="bi bi-hash me-1"></i>Chunks: <strong id="chunk-count">{{ chunks.count }}</strong></span>
+      {% if video.duration_seconds %}
+      <span><i class="bi bi-clock me-1"></i>Duration: <strong>{{ video.duration_seconds|floatformat:0 }}s</strong></span>
+      {% endif %}
+      {% if english_pdf_url %}
+      <a href="{{ english_pdf_url }}" class="text-decoration-none" download>
+        <i class="bi bi-file-earmark-pdf me-1"></i>EN PDF
+      </a>
+      {% endif %}
+      {% if malayalam_pdf_url %}
+      <a href="{{ malayalam_pdf_url }}" class="text-decoration-none" download>
+        <i class="bi bi-file-earmark-pdf me-1"></i>ML PDF
+      </a>
+      {% endif %}
+    </div>
+
+    <!-- ── Full transcript (below player on desktop) ────────────────────── -->
+    {% if video.english_transcript %}
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+          <h6 class="fw-bold mb-0 me-2">Transcript</h6>
+          <div class="d-flex gap-1">
+            <button class="lang-toggle-btn active" id="btn-en" onclick="showLang('en')">English</button>
+            <button class="lang-toggle-btn"        id="btn-ml" onclick="showLang('ml')">Malayalam</button>
+            <button class="lang-toggle-btn"        id="btn-both" onclick="showLang('both')">Side by Side</button>
+          </div>
+          {% if user.role == 'admin' or user.role == 'instructor' %}
+          <a href="{% url 'upload-material' video.id %}" class="btn btn-outline-secondary btn-sm ms-auto">
+            <i class="bi bi-pencil me-1"></i>Edit Study Material
+          </a>
+          {% endif %}
+        </div>
+
+        <div id="panel-en" class="lang-panel active">
+          <p style="white-space:pre-wrap;line-height:1.75;font-size:.9rem;margin:0;">{{ video.english_transcript|default:"No transcript yet." }}</p>
+        </div>
+        <div id="panel-ml" class="lang-panel">
+          <p style="white-space:pre-wrap;line-height:2;font-size:.95rem;
+                    font-family:'Noto Sans Malayalam',sans-serif;margin:0;">{{ video.malayalam_transcript|default:"No Malayalam transcript yet." }}</p>
+        </div>
+        <div id="panel-both" class="lang-panel">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <h6 class="text-muted small">English</h6>
+              <p style="white-space:pre-wrap;line-height:1.75;font-size:.88rem;margin:0;">{{ video.english_transcript|default:"—" }}</p>
+            </div>
+            <div class="col-md-6">
+              <h6 class="text-muted small">Malayalam</h6>
+              <p style="white-space:pre-wrap;line-height:2;font-size:.9rem;
+                        font-family:'Noto Sans Malayalam',sans-serif;margin:0;">{{ video.malayalam_transcript|default:"—" }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div><!-- /video-col -->
+
+  <!-- ── Right: Transcript chunks (synced to playhead) ──────────────────── -->
+  <div class="transcript-col">
+    <div class="card h-100">
+      <div class="card-body p-0">
+        <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
+          <h6 class="fw-bold mb-0">
+            <i class="bi bi-list-columns me-2 text-primary"></i>Chapters
+          </h6>
+          <span class="text-muted" style="font-size:.75rem;" id="chunk-count-side">{{ chunks.count }} chunk{{ chunks.count|pluralize }}</span>
+        </div>
+
+        {% if chunks %}
+          {% if chunks %}
+          <div class="transcript-panel p-2" id="chunk-list">
+            {% for chunk in chunks %}
+            <div class="chunk-row d-flex align-items-start gap-2"
+                 id="chunk-{{ chunk.chunk_index }}"
+                 data-start="{{ chunk.start_time }}"
+                 data-end="{{ chunk.end_time }}"
+                 onclick="seekTo({{ chunk.start_time }})">
+              <div class="flex-shrink-0 text-center" style="min-width:40px;padding-top:.1rem;">
+                <span class="badge bg-secondary" style="font-size:.65rem;">
+                  {{ chunk.start_time|floatformat:0 }}s
+                </span>
+              </div>
+              <div class="overflow-hidden" style="font-size:.8rem;line-height:1.45;">
+                <div class="text-truncate-3">{{ chunk.text|default:"—"|truncatechars:110 }}</div>
+                {% if chunk.topic_segment %}
+                <span class="badge bg-light text-muted border mt-1" style="font-size:.65rem;">
+                  §{{ chunk.topic_segment }}
+                </span>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="p-4 text-center text-muted">
+            <i class="bi bi-card-list" style="font-size:1.75rem;opacity:.4;"></i>
+            <p class="mt-2 mb-0" style="font-size:.85rem;">No chunks yet.</p>
+          </div>
+          {% endif %}
+        {% else %}
+          <div class="p-4 text-center text-muted">
+            {% if video.status == 'PROCESSING' %}
+            <div class="spinner-border spinner-border-sm mb-2"></div>
+            <p class="mb-0" style="font-size:.85rem;">Generating index…</p>
+            {% else %}
+            <i class="bi bi-card-list" style="font-size:1.75rem;opacity:.4;"></i>
+            <p class="mt-2 mb-0" style="font-size:.85rem;">Upload a transcript to see chapters.</p>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div><!-- /transcript-col -->
+
+</div><!-- /video-wrap -->
+
+<!-- ── Back link ─────────────────────────────────────────────────────────── -->
+<div class="mt-4">
+  <a href="{% url 'course-detail' video.course.id %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to {{ video.course.title }}
+  </a>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ── Video seek ──────────────────────────────────────────────────────────── */
+const player = document.getElementById('player');
+
+function seekTo(t) {
+  if (player) {
+    player.currentTime = t;
+    player.play();
+  }
+}
+
+/* ── Highlight active chunk as video plays ───────────────────────────────── */
+if (player) {
+  player.addEventListener('timeupdate', () => {
+    const t = player.currentTime;
+    document.querySelectorAll('.chunk-row').forEach(row => {
+      const start = parseFloat(row.dataset.start);
+      const end   = parseFloat(row.dataset.end);
+      const active = t >= start && t < end;
+      row.classList.toggle('playing', active);
+      if (active) {
+        row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+  });
+}
+
+/* ── Language toggle ─────────────────────────────────────────────────────── */
+function showLang(lang) {
+  ['en','ml','both'].forEach(l => {
+    const panel = document.getElementById('panel-' + l);
+    const btn   = document.getElementById('btn-'   + l);
+    if (panel) panel.classList.toggle('active', l === lang);
+    if (btn)   btn.classList.toggle('active',   l === lang);
+  });
+}
+
+/* ── Status polling (stops when READY or FAILED) ─────────────────────────── */
+const statusUrl     = '{% url "video-status" video.id %}';
+const statusBadge   = document.getElementById('status-badge');
+const chunkCountEl  = document.getElementById('chunk-count');
+const chunkSideEl   = document.getElementById('chunk-count-side');
+const currentStatus = '{{ video.status }}';
+
+function pollStatus() {
+  fetch(statusUrl)
+    .then(r => r.json())
+    .then(data => {
+      if (statusBadge) {
+        statusBadge.textContent = data.status_display;
+        statusBadge.className   = 'badge status-badge-lg bg-' + {
+          UPLOADED: 'secondary', PROCESSING: 'warning',
+          READY: 'success', FAILED: 'danger'
+        }[data.status];
+      }
+      if (chunkCountEl) chunkCountEl.textContent = data.chunk_count;
+      if (chunkSideEl)  chunkSideEl.textContent  = data.chunk_count + ' chunk' + (data.chunk_count !== 1 ? 's' : '');
+
+      if (data.status === 'READY') {
+        window.lmsNotify && window.lmsNotify('Content Ready', '{{ video.title|escapejs }}', 'success');
+        location.reload();
+      } else if (data.status === 'FAILED') {
+        window.lmsNotify && window.lmsNotify('Processing Failed', '{{ video.title|escapejs }}', 'danger');
+        location.reload();
+      } else {
+        setTimeout(pollStatus, 5000);
+      }
+    })
+    .catch(() => setTimeout(pollStatus, 5000));
+}
+
+if (currentStatus === 'PROCESSING') {
+  setTimeout(pollStatus, 5000);
+}
+</script>
+{% endblock %}

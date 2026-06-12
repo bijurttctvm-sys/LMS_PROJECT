@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% load tz %}
+{% block title %}Book a Doubt Session — LMS{% endblock %}
+
+{% block extra_head %}
+<style>
+  .slot-card { cursor: pointer; border: 2px solid #dee2e6; transition: border-color .15s, background .15s; }
+  .slot-card:hover { border-color: #0d6efd; background: #f0f7ff; }
+  input[type=radio]:checked + .slot-card { border-color: #0d6efd; background: #e8f0fe; }
+  input[type=radio] { display: none; }
+  .countdown-ring { font-size: 2.5rem; font-weight: 700; color: #fd7e14; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h2>Book a Doubt Session</h2>
+<p class="text-muted">One-on-one session with your instructor via Google Meet</p>
+
+{% if not eligible and active_session %}
+<!-- ── Already booked ──────────────────────────────────────────────────────── -->
+<div class="card border-primary mb-4">
+  <div class="card-header bg-primary text-white fw-semibold">
+    You have an upcoming session
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <p class="mb-1"><strong>Instructor:</strong>
+          {{ active_session.instructor.get_full_name|default:active_session.instructor.username }}
+        </p>
+        {% localtime on %}
+        <p class="mb-1"><strong>Date & Time:</strong>
+          {{ active_session.slot.slot_datetime|date:"l, F j, Y" }} at
+          {{ active_session.slot.slot_datetime|date:"g:i A" }}
+        </p>
+        {% endlocaltime %}
+        <p class="mb-1"><strong>Status:</strong>
+          <span class="badge bg-primary">{{ active_session.get_status_display }}</span>
+        </p>
+      </div>
+      <div class="col-md-6 d-flex align-items-center">
+        {% if active_session.meet_url %}
+          <a href="{{ active_session.meet_url }}" target="_blank"
+             class="btn btn-success w-100">
+            Join Google Meet
+          </a>
+        {% else %}
+          <div class="alert alert-warning mb-0 py-2 w-100">
+            Meet link not set yet. Check back closer to the session.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="card-footer text-muted small">
+    <a href="{% url 'my-sessions' %}">View all your sessions &rarr;</a>
+  </div>
+</div>
+
+{% elif not eligible and next_eligible_date %}
+<!-- ── Cooldown / not eligible ─────────────────────────────────────────────── -->
+<div class="card border-warning mb-4">
+  <div class="card-body text-center py-5">
+    <div class="countdown-ring mb-2" id="countdown-display">--</div>
+    <h5 class="mb-1">You recently attended a session</h5>
+    <p class="text-muted mb-3">
+      You can book your next session on
+      {% localtime on %}
+      <strong>{{ next_eligible_date|date:"l, F j, Y" }}</strong>
+      {% endlocaltime %}
+      (30-day cooldown after attendance).
+    </p>
+    <a href="{% url 'my-sessions' %}" class="btn btn-outline-secondary btn-sm">View my sessions</a>
+  </div>
+</div>
+
+{% block extra_js %}
+<script>
+const target = new Date("{{ next_eligible_date|date:'c' }}");
+function tick() {
+  const diff = target - Date.now();
+  if (diff <= 0) { document.getElementById('countdown-display').textContent = 'Eligible now!'; return; }
+  const d = Math.floor(diff / 86400000);
+  const h = Math.floor((diff % 86400000) / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  document.getElementById('countdown-display').textContent = `${d}d ${h}h ${m}m`;
+}
+tick(); setInterval(tick, 60000);
+</script>
+{% endblock %}
+
+{% else %}
+<!-- ── Eligible: show available slots ─────────────────────────────────────── -->
+{% if available_slots %}
+<form method="post">
+  {% csrf_token %}
+  <div class="row g-3 mb-4">
+    {% for slot in available_slots %}
+    <div class="col-md-6 col-lg-4">
+      <label style="width:100%">
+        <input type="radio" name="slot_id" value="{{ slot.id }}" required>
+        <div class="slot-card rounded p-3">
+          <div class="fw-semibold mb-1">
+            {% localtime on %}{{ slot.slot_datetime|date:"l, M j" }}{% endlocaltime %}
+          </div>
+          <div class="fs-5">
+            {% localtime on %}{{ slot.slot_datetime|date:"g:i A" }}{% endlocaltime %}
+          </div>
+          <div class="text-muted small mt-1">
+            with {{ slot.instructor.get_full_name|default:slot.instructor.username }}
+          </div>
+          {% if slot.instructor.google_meet_link %}
+            <span class="badge bg-success mt-1">Meet link ready</span>
+          {% else %}
+            <span class="badge bg-secondary mt-1">Link TBA</span>
+          {% endif %}
+        </div>
+      </label>
+    </div>
+    {% endfor %}
+  </div>
+  <button type="submit" class="btn btn-primary btn-lg">
+    Confirm Booking
+  </button>
+  <p class="text-muted small mt-2">
+    You can book one session every 30 days after attending.
+  </p>
+</form>
+
+{% else %}
+<div class="alert alert-info">
+  <strong>No slots available right now.</strong><br>
+  Check back later or ask your instructor to add availability.
+</div>
+{% endif %}
+{% endif %}
+
+<div class="mt-4">
+  <a href="{% url 'student-dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+</div>
+{% endblock %}

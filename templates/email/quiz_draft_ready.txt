@@ -1,0 +1,16 @@
+Hi {{ admin_name }},
+
+A new batch of AI-generated quiz questions is ready for your review.
+
+Video:   {{ video_title }}
+Course:  {{ course_title }}
+Questions generated: {{ question_count }}
+
+Please log in and review the draft questions before publishing them to students:
+{{ review_url }}
+
+Questions marked as "Approved" can be published as a quiz at any time from the
+Quiz Drafts page. Questions can be edited before approval.
+
+---
+LMS Platform — automated notification

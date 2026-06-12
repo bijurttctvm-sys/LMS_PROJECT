@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load tz %}
+{% block title %}Manage Slots — LMS{% endblock %}
+
+{% block extra_head %}
+<style>
+  .cal-table { table-layout: fixed; }
+  .cal-table th { text-align: center; background: #343a40; color: #fff; padding: 6px 0; font-size:.85rem; }
+  .cal-cell { vertical-align: top; min-height: 90px; padding: 6px 4px; font-size:.82rem; }
+  .cal-cell.today  { background: #e8f4ff; }
+  .cal-cell.past   { background: #f8f9fa; color: #adb5bd; }
+  .cal-cell.empty  { background: #f8f9fa; }
+  .day-num { font-weight: 700; margin-bottom: 4px; }
+  .slot-pill { display: inline-block; padding: 1px 6px; border-radius: 30px; font-size:.75rem;
+               margin: 1px 0; white-space: nowrap; }
+  .slot-available { background: #d1e7dd; color: #0f5132; }
+  .slot-booked    { background: #fff3cd; color: #664d03; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2>Slot Management</h2>
+    <p class="text-muted mb-0">
+      {{ month_name }} {{ year }} &nbsp;
+      <span class="badge bg-success">{{ available }} available</span>
+      <span class="badge bg-secondary">{{ total_slots }} total</span>
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="?year={{ prev_year }}&month={{ prev_month }}" class="btn btn-outline-secondary btn-sm">&larr;</a>
+    <span class="align-self-center fw-semibold">{{ month_name }} {{ year }}</span>
+    <a href="?year={{ next_year }}&month={{ next_month }}" class="btn btn-outline-secondary btn-sm">&rarr;</a>
+  </div>
+</div>
+
+<!-- Calendar grid -->
+<div class="card mb-4">
+  <div class="card-body p-2">
+    <table class="table table-bordered cal-table mb-0">
+      <thead>
+        <tr>
+          {% for name in day_names %}
+            <th>{{ name }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for week in weeks %}
+        <tr>
+          {% for cell in week %}
+            {% if cell is None %}
+              <td class="cal-cell empty"></td>
+            {% else %}
+              <td class="cal-cell {% if cell.is_today %}today{% elif cell.is_past %}past{% endif %}">
+                <div class="day-num {% if cell.is_today %}text-primary{% elif cell.is_past %}text-muted{% endif %}">
+                  {{ cell.day }}
+                </div>
+                {% for slot in cell.slots %}
+                  {% localtime on %}
+                  <div class="d-flex align-items-center gap-1 mb-1">
+                    <span class="slot-pill {% if slot.is_available %}slot-available{% else %}slot-booked{% endif %}">
+                      {{ slot.slot_datetime|date:"g:i A" }}
+                      {% if not slot.is_available %}&middot;booked{% endif %}
+                    </span>
+                    {% if slot.is_available %}
+                      <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action"  value="remove">
+                        <input type="hidden" name="slot_id" value="{{ slot.id }}">
+                        <button type="submit" class="btn btn-link p-0 text-danger"
+                                style="font-size:.7rem;line-height:1;"
+                                onclick="return confirm('Remove this slot?')"
+                                title="Remove slot">&#x2715;</button>
+                      </form>
+                    {% endif %}
+                  </div>
+                  {% endlocaltime %}
+                {% endfor %}
+              </td>
+            {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add slot form -->
+<div class="card" style="max-width:480px">
+  <div class="card-header fw-semibold">Add a New Slot</div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add">
+      <div class="row g-3">
+        <div class="col-7">
+          <label class="form-label">Date</label>
+          <input type="date" name="slot_date" class="form-control"
+                 min="{{ today|date:'Y-m-d' }}" required>
+        </div>
+        <div class="col-5">
+          <label class="form-label">Time (24h)</label>
+          <input type="time" name="slot_time" class="form-control" value="10:00" required>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary mt-3 w-100">Add Slot</button>
+    </form>
+  </div>
+</div>
+
+<div class="mt-3">
+  <a href="{% url 'instructor-sessions' %}" class="btn btn-outline-secondary btn-sm">My Sessions</a>
+  <a href="{% url 'instructor-dashboard' %}" class="btn btn-outline-secondary btn-sm ms-2">Dashboard</a>
+</div>
+{% endblock %}

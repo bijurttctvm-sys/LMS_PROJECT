@@ -1,0 +1,41 @@
+﻿{% extends "base.html" %}
+{% block title %}Delete Course Content — LMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card border-danger">
+      <div class="card-header bg-danger text-white fw-bold">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>Delete Course Content
+      </div>
+      <div class="card-body p-4">
+        <h5 class="mb-1">{{ course.title }}</h5>
+        <p class="text-muted mb-3" style="font-size:.875rem;">
+          This action is <strong>irreversible</strong>. All of the following will be permanently deleted:
+        </p>
+        <ul class="mb-4" style="font-size:.875rem;">
+          <li><strong>{{ video_count }} video record(s)</strong> and their files from storage</li>
+          <li>All <strong>study material</strong> (text chunks and PDF exports)</li>
+          <li>All <strong>Pinecone vector embeddings</strong> for this course</li>
+          <li>All <strong>quiz drafts and published quizzes</strong></li>
+        </ul>
+
+        <div class="alert alert-warning py-2 mb-4" style="font-size:.875rem;">
+          <i class="bi bi-info-circle me-1"></i>
+          Student enrollments and doubt session records are <strong>not</strong> affected.
+        </div>
+
+        <form method="post">
+          {% csrf_token %}
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-danger">
+              <i class="bi bi-trash3 me-1"></i>Yes, Delete All Content
+            </button>
+            <a href="{% url "course-detail" course.id %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

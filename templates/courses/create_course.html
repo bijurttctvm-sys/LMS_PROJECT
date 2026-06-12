@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Create Course — LMS{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card p-4">
+      <h3 class="mb-3">Create Course</h3>
+      <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="mb-3">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {% if field.field.widget.input_type == 'checkbox' %}
+            <div class="form-check">
+              <input type="checkbox" name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                     class="form-check-input {% if field.errors %}is-invalid{% endif %}"
+                     {% if field.value %}checked{% endif %}>
+            </div>
+          {% elif field.field.widget.input_type == 'select' %}
+            <select name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                    class="form-select {% if field.errors %}is-invalid{% endif %}">
+              {% for val, label in field.field.choices %}
+                <option value="{{ val }}" {% if field.value|stringformat:'s' == val|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          {% elif field.field.widget.input_type == 'textarea' %}
+            <textarea name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                      class="form-control {% if field.errors %}is-invalid{% endif %}"
+                      rows="3">{{ field.value|default:'' }}</textarea>
+          {% else %}
+            <input type="{{ field.field.widget.input_type }}"
+                   name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                   value="{{ field.value|default:'' }}"
+                   class="form-control {% if field.errors %}is-invalid{% endif %}">
+          {% endif %}
+          {% for err in field.errors %}
+            <div class="invalid-feedback d-block">{{ err }}</div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary">Create Course</button>
+        <a href="{% url 'course-list' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

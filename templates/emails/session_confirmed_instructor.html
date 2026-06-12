@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New Doubt Session Booked</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f4f4f4; font-family: Arial, sans-serif; color: #333; }
+    .wrapper { max-width: 560px; margin: 32px auto; background: #fff; border-radius: 8px;
+               overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+    .header { background: #6f42c1; padding: 28px 32px; }
+    .header h1 { color: #fff; margin: 0; font-size: 20px; }
+    .body { padding: 28px 32px; }
+    .detail-row { display: flex; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+    .detail-label { min-width: 120px; font-weight: bold; color: #555; font-size: 14px; }
+    .detail-value { font-size: 14px; }
+    .meet-btn { display: inline-block; margin-top: 20px; padding: 12px 28px;
+                background: #198754; color: #fff; text-decoration: none;
+                border-radius: 6px; font-size: 15px; font-weight: bold; }
+    .footer { background: #f8f9fa; padding: 16px 32px; text-align: center;
+              font-size: 12px; color: #999; }
+    .alert-box { background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px;
+                 padding: 12px 16px; margin-top: 20px; font-size: 13px; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">
+    <h1>New Doubt Session Booked</h1>
+  </div>
+  <div class="body">
+    <p>Hi <strong>{{ instructor.first_name|default:instructor.username }}</strong>,</p>
+    <p>A student has booked a doubt session with you. Here are the details:</p>
+
+    <div class="detail-row">
+      <div class="detail-label">Student</div>
+      <div class="detail-value">{{ student.get_full_name|default:student.username }}</div>
+    </div>
+    <div class="detail-row">
+      <div class="detail-label">Email</div>
+      <div class="detail-value">{{ student.email|default:"—" }}</div>
+    </div>
+    <div class="detail-row">
+      <div class="detail-label">Date</div>
+      <div class="detail-value">{{ slot_time|date:"l, F j, Y" }}</div>
+    </div>
+    <div class="detail-row">
+      <div class="detail-label">Time</div>
+      <div class="detail-value">{{ slot_time|date:"g:i A" }} (IST)</div>
+    </div>
+
+    {% if meet_url %}
+      <a href="{{ meet_url }}" class="meet-btn">Join Google Meet</a>
+    {% else %}
+      <div class="alert-box">
+        You have not set a Google Meet link in your profile. Please add one so
+        the student can join the session.
+      </div>
+    {% endif %}
+
+    <p style="margin-top:24px;font-size:13px;color:#666;">
+      After the session, please log in and mark the outcome as <strong>Attended</strong>
+      or <strong>No Show</strong> from your sessions page.
+    </p>
+  </div>
+  <div class="footer">
+    LMS Platform &mdash; Automated Notification &mdash; Do not reply to this email.
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Review Draft — LMS{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2>Review Question</h2>
+    <p class="text-muted mb-0">
+      {{ draft.video.title }} &middot; {{ draft.video.course.title }}
+      {% if total %}
+        &middot; <span class="badge bg-secondary">{{ index }} / {{ total }}</span>
+      {% endif %}
+    </p>
+  </div>
+  <div>
+    {% if prev_id %}
+      <a href="{% url 'review-quiz-draft' prev_id %}" class="btn btn-outline-secondary btn-sm me-1">&larr; Prev</a>
+    {% endif %}
+    {% if next_id %}
+      <a href="{% url 'review-quiz-draft' next_id %}" class="btn btn-outline-secondary btn-sm">Next &rarr;</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="mb-4">
+        <label class="form-label fw-semibold">Question</label>
+        <textarea name="question_text" class="form-control" rows="3">{{ draft.question_text }}</textarea>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-6">
+          <label class="form-label">
+            Option <strong>A</strong>
+            {% if draft.correct_option == 'a' %}<span class="badge bg-success ms-1">Correct</span>{% endif %}
+          </label>
+          <input type="text" name="option_a" value="{{ draft.option_a }}" class="form-control">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">
+            Option <strong>B</strong>
+            {% if draft.correct_option == 'b' %}<span class="badge bg-success ms-1">Correct</span>{% endif %}
+          </label>
+          <input type="text" name="option_b" value="{{ draft.option_b }}" class="form-control">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">
+            Option <strong>C</strong>
+            {% if draft.correct_option == 'c' %}<span class="badge bg-success ms-1">Correct</span>{% endif %}
+          </label>
+          <input type="text" name="option_c" value="{{ draft.option_c }}" class="form-control">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">
+            Option <strong>D</strong>
+            {% if draft.correct_option == 'd' %}<span class="badge bg-success ms-1">Correct</span>{% endif %}
+          </label>
+          <input type="text" name="option_d" value="{{ draft.option_d }}" class="form-control">
+        </div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Correct Answer</label>
+          <select name="correct_option" class="form-select">
+            <option value="a" {% if draft.correct_option == 'a' %}selected{% endif %}>A</option>
+            <option value="b" {% if draft.correct_option == 'b' %}selected{% endif %}>B</option>
+            <option value="c" {% if draft.correct_option == 'c' %}selected{% endif %}>C</option>
+            <option value="d" {% if draft.correct_option == 'd' %}selected{% endif %}>D</option>
+          </select>
+        </div>
+        <div class="col-md-8">
+          <label class="form-label fw-semibold">Explanation <span class="text-muted fw-normal">(optional)</span></label>
+          <textarea name="explanation" class="form-control" rows="2">{{ draft.explanation }}</textarea>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 mt-2">
+        <button type="submit" name="action" value="approve" class="btn btn-success">
+          Approve &amp; Save
+        </button>
+        <button type="button" class="btn btn-danger" data-bs-toggle="collapse" data-bs-target="#reject-panel">
+          Reject
+        </button>
+        <a href="{% url 'quiz-draft-list' %}" class="btn btn-outline-secondary ms-auto">Back to List</a>
+      </div>
+
+      <div class="collapse mt-3" id="reject-panel">
+        <div class="card card-body bg-light">
+          <label class="form-label fw-semibold text-danger">Rejection reason (optional)</label>
+          <textarea name="admin_note" class="form-control mb-2" rows="2"
+                    placeholder="Explain why this question is rejected...">{{ draft.admin_note }}</textarea>
+          <button type="submit" name="action" value="reject" class="btn btn-danger btn-sm">
+            Confirm Rejection
+          </button>
+        </div>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+{% endblock %}

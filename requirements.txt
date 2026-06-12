@@ -1,0 +1,45 @@
+# Core web framework
+django
+djangorestframework
+
+# Database & config
+psycopg2-binary
+dj-database-url
+python-dotenv
+
+# Async tasks
+celery
+redis
+django-celery-results
+
+# Serving / deployment
+gunicorn
+whitenoise
+
+# Media
+pillow
+
+# Storage & serverless
+boto3
+modal
+
+# Vector store & LLM / speech
+pinecone
+groq
+requests
+transformers
+torch
+sentencepiece
+sarvamai
+
+# PDF generation
+reportlab
+
+# Study material text extraction (PDF / Word / PowerPoint)
+pypdf
+python-docx
+python-pptx
+
+# Google auth
+google-auth
+google-auth-oauthlib

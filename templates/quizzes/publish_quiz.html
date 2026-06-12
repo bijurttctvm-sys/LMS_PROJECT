@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Publish Quiz — LMS{% endblock %}
+{% block content %}
+
+<h2>Publish Quiz</h2>
+<p class="text-muted">{{ video.title }} &middot; {{ video.course.title }}</p>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <p class="mb-1">
+      <strong>{{ count }} approved question{{ count|pluralize }}</strong> will be published as a new quiz.
+    </p>
+    <p class="text-muted small mb-0">
+      Once published, these draft questions will be removed and the quiz will be visible to enrolled students.
+    </p>
+  </div>
+</div>
+
+<div class="mb-4">
+  <table class="table table-sm table-bordered">
+    <thead class="table-light">
+      <tr><th>#</th><th>Question</th><th>Answer</th></tr>
+    </thead>
+    <tbody>
+      {% for d in approved %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ d.question_text|truncatechars:80 }}</td>
+        <td class="text-uppercase text-center fw-bold">{{ d.correct_option }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="mb-3" style="max-width:400px">
+    <label class="form-label fw-semibold">Quiz Title</label>
+    <input type="text" name="title" class="form-control"
+           value="Quiz: {{ video.title }}" maxlength="255" required>
+  </div>
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-success">Publish Now</button>
+    <a href="{% url 'quiz-draft-list' %}" class="btn btn-outline-secondary">Cancel</a>
+  </div>
+</form>
+
+{% endblock %}

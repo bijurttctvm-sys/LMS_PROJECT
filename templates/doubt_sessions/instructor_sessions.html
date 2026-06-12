@@ -1,0 +1,182 @@
+﻿{% extends "base.html" %}
+{% load tz %}
+{% block title %}Doubt Sessions — Instructor{% endblock %}
+
+{% block extra_head %}
+<style>
+  .outcome-form { display: none; }
+  .outcome-form.open { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2>Doubt Sessions</h2>
+    <p class="text-muted mb-0">Review student requests and manage your sessions.</p>
+  </div>
+  <a href="{% url "instructor-dashboard" %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+</div>
+
+<!-- Pending Requests -->
+<h5 class="mb-3">
+  <i class="bi bi-inbox me-2 text-warning"></i>
+  Pending Requests ({{ pending_requests|length }})
+</h5>
+
+{% if not pending_requests %}
+<div class="alert alert-light mb-4">No pending student requests.</div>
+{% else %}
+<div class="d-flex flex-column gap-3 mb-5">
+  {% for session in pending_requests %}
+  <div class="card border-warning">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+          <h6 class="mb-1">
+            {{ session.student.get_full_name|default:session.student.username }}
+            {% if session.course %} &mdash; {{ session.course.title }}{% endif %}
+          </h6>
+          <p class="text-muted small mb-2">{{ session.student.email|default:"no email" }}</p>
+          {% if session.request_message %}
+          <p class="mb-0 small">
+            <i class="bi bi-chat-quote me-1"></i>{{ session.request_message }}
+          </p>
+          {% endif %}
+        </div>
+        <a href="{% url "propose-slots" session.id %}" class="btn btn-warning btn-sm">
+          <i class="bi bi-calendar-plus me-1"></i>Propose 3 Slots
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Awaiting Student Choice -->
+{% if slots_proposed %}
+<h5 class="mb-3">
+  <i class="bi bi-hourglass-split me-2 text-info"></i>
+  Awaiting Student Choice ({{ slots_proposed|length }})
+</h5>
+<div class="d-flex flex-column gap-2 mb-5">
+  {% for session in slots_proposed %}
+  <div class="card border-info">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <strong>{{ session.student.get_full_name|default:session.student.username }}</strong>
+          {% if session.course %} &mdash; {{ session.course.title }}{% endif %}
+          <p class="text-muted small mb-1">Proposed slots:</p>
+          <div class="d-flex gap-2 flex-wrap">
+            {% for ps in session.proposed_slots.all %}
+            {% localtime on %}
+            <span class="badge bg-light text-dark border" style="font-size:.75rem;">
+              {{ ps.slot_datetime|date:"M j g:i A" }}
+            </span>
+            {% endlocaltime %}
+            {% endfor %}
+          </div>
+        </div>
+        <span class="badge bg-info text-dark">Waiting for student</span>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Upcoming Confirmed -->
+<h5 class="mb-3">
+  <i class="bi bi-calendar-check me-2 text-primary"></i>
+  Upcoming Confirmed ({{ upcoming|length }})
+</h5>
+
+{% if not upcoming %}
+<div class="alert alert-light mb-4">No upcoming confirmed sessions.</div>
+{% else %}
+<div class="d-flex flex-column gap-3 mb-5">
+  {% for session in upcoming %}
+  {% localtime on %}
+  <div class="card border-primary">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+          <h6 class="mb-1">{{ session.slot.slot_datetime|date:"l, F j, Y" }} at {{ session.slot.slot_datetime|date:"g:i A" }}</h6>
+          <p class="text-muted small mb-1">
+            Student: <strong>{{ session.student.get_full_name|default:session.student.username }}</strong>
+            &middot; {{ session.student.email|default:"no email" }}
+          </p>
+          {% if session.course %}<p class="text-muted small mb-1">Course: {{ session.course.title }}</p>{% endif %}
+          {% if session.meet_url %}
+          <a href="{{ session.meet_url }}" target="_blank" class="btn btn-success btn-sm">Join Meet</a>
+          {% endif %}
+        </div>
+        <div class="text-end">
+          <span class="badge bg-primary mb-2">{{ session.get_status_display }}</span><br>
+          <button class="btn btn-outline-secondary btn-sm" onclick="toggleOutcome({{ session.id }})">
+            Mark Outcome
+          </button>
+        </div>
+      </div>
+      <div class="outcome-form mt-3 p-3 bg-light rounded" id="outcome-{{ session.id }}">
+        <p class="fw-semibold mb-2">What was the outcome of this session?</p>
+        <div class="d-flex gap-2">
+          <form method="post" action="{% url "mark-outcome" session.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="outcome" value="attended">
+            <button type="submit" class="btn btn-success">Student Attended</button>
+          </form>
+          <form method="post" action="{% url "mark-outcome" session.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="outcome" value="no_show">
+            <button type="submit" class="btn btn-warning">No Show</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endlocaltime %}
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Past Sessions -->
+{% if past %}
+<h5 class="mb-3 text-muted">Past Sessions (last 30)</h5>
+<table class="table table-sm table-hover">
+  <thead class="table-light">
+    <tr><th>Date & Time</th><th>Student</th><th>Course</th><th>Outcome</th></tr>
+  </thead>
+  <tbody>
+    {% for session in past %}
+    {% localtime on %}
+    <tr>
+      <td>{% if session.slot %}{{ session.slot.slot_datetime|date:"M j, Y g:i A" }}{% else %}—{% endif %}</td>
+      <td>{{ session.student.get_full_name|default:session.student.username }}</td>
+      <td>{{ session.course.title|default:"—" }}</td>
+      <td>
+        <span class="badge
+          {% if session.status == "attended" or session.status == "completed" %}bg-success
+          {% elif session.status == "no_show" %}bg-danger
+          {% elif session.status == "cancelled" %}bg-secondary
+          {% else %}bg-warning text-dark{% endif %}">
+          {{ session.get_status_display }}
+        </span>
+      </td>
+    </tr>
+    {% endlocaltime %}
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleOutcome(id) {
+  document.getElementById("outcome-" + id).classList.toggle("open");
+}
+</script>
+{% endblock %}

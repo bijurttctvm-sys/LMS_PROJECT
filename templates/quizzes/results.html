@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Quiz Results — LMS{% endblock %}
+
+{% block extra_head %}
+<style>
+  .result-row.correct { background: #d1e7dd; }
+  .result-row.wrong   { background: #f8d7da; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h2>Quiz Results</h2>
+<p class="text-muted">{{ quiz.title }} &middot; {{ quiz.video.course.title }}</p>
+
+<!-- Score card -->
+<div class="card mb-4">
+  <div class="card-body text-center py-5">
+    <div class="display-3 fw-bold
+      {% if attempt.passed %}text-success{% else %}text-danger{% endif %}">
+      {{ attempt.score }} / {{ attempt.total_questions }}
+    </div>
+    <div class="fs-4 mt-2">{{ attempt.percentage }}%</div>
+    {% if attempt.passed %}
+      <div class="badge bg-success fs-6 mt-2">Passed</div>
+    {% else %}
+      <div class="badge bg-danger fs-6 mt-2">Not Passed (need 60%)</div>
+    {% endif %}
+    <p class="text-muted small mt-3 mb-0">
+      Completed {{ attempt.completed_at|date:"M d, Y H:i" }}
+    </p>
+  </div>
+</div>
+
+<!-- Per-question breakdown -->
+<h5 class="mb-3">Question Breakdown</h5>
+<div class="d-flex flex-column gap-3 mb-4">
+  {% for item in breakdown %}
+  <div class="card result-row {% if item.is_correct %}correct{% else %}wrong{% endif %}">
+    <div class="card-body py-3">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <strong>Q{{ forloop.counter }}. {{ item.question.question_text }}</strong>
+        {% if item.is_correct %}
+          <span class="badge bg-success ms-2 flex-shrink-0">Correct</span>
+        {% else %}
+          <span class="badge bg-danger ms-2 flex-shrink-0">Wrong</span>
+        {% endif %}
+      </div>
+
+      {% if not item.is_correct %}
+      <div class="small">
+        <span class="text-danger">
+          Your answer: <strong class="text-uppercase">{{ item.chosen|default:"—" }}</strong>
+          {% if item.chosen_text %} &mdash; {{ item.chosen_text }}{% endif %}
+        </span>
+        <br>
+        <span class="text-success">
+          Correct answer: <strong class="text-uppercase">{{ item.question.correct_option }}</strong>
+          &mdash; {{ item.correct_text }}
+        </span>
+      </div>
+      {% else %}
+      <div class="small text-success">
+        Your answer: <strong class="text-uppercase">{{ item.chosen }}</strong>
+        &mdash; {{ item.chosen_text }}
+      </div>
+      {% endif %}
+
+      {% if item.question.explanation %}
+      <div class="mt-2 small text-muted">
+        <strong>Explanation:</strong> {{ item.question.explanation }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="d-flex gap-2">
+  <a href="{% url 'student-quiz-list' %}" class="btn btn-outline-primary btn-sm">All Quizzes</a>
+  <a href="{% url 'student-dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+</div>
+
+{% endblock %}

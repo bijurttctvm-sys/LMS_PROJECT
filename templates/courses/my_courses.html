@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}My Courses — LMS{% endblock %}
+{% block content %}
+<h2>My Courses</h2>
+{% if courses %}
+  <div class="row g-3 mt-1">
+    {% for course in courses %}
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title">{{ course.title }}</h5>
+          <span class="badge bg-secondary">{{ course.get_language_display }}</span>
+          <p class="text-muted small mt-1">{{ course.videos.count }} video(s)</p>
+        </div>
+        <div class="card-footer">
+          <a href="{% url 'course-detail' course.id %}" class="btn btn-sm btn-outline-primary">Open</a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="alert alert-info mt-3">No courses yet.</div>
+{% endif %}
+{% endblock %}

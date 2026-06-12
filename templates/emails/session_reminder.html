@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Session Reminder — 15 Minutes</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f4f4f4; font-family: Arial, sans-serif; color: #333; }
+    .wrapper { max-width: 560px; margin: 32px auto; background: #fff; border-radius: 8px;
+               overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+    .header { background: #fd7e14; padding: 28px 32px; }
+    .header h1 { color: #fff; margin: 0; font-size: 20px; }
+    .header p  { color: #fff3e0; margin: 4px 0 0; font-size: 14px; }
+    .body { padding: 28px 32px; text-align: center; }
+    .time-block { font-size: 2.5rem; font-weight: 700; color: #fd7e14; margin: 16px 0 4px; }
+    .meet-btn { display: inline-block; margin-top: 20px; padding: 14px 36px;
+                background: #198754; color: #fff; text-decoration: none;
+                border-radius: 6px; font-size: 16px; font-weight: bold; }
+    .footer { background: #f8f9fa; padding: 16px 32px; text-align: center;
+              font-size: 12px; color: #999; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">
+    <h1>Your session starts in {{ minutes }} minutes!</h1>
+    <p>Doubt Session Reminder</p>
+  </div>
+  <div class="body">
+    <p>Get ready for your doubt session.</p>
+
+    <div class="time-block">{{ slot_time|date:"g:i A" }}</div>
+    <p style="color:#666;font-size:14px;">{{ slot_time|date:"l, F j, Y" }} (IST)</p>
+
+    <p style="font-size:14px;">
+      <strong>Student:</strong> {{ student.get_full_name|default:student.username }}<br>
+      <strong>Instructor:</strong> {{ instructor.get_full_name|default:instructor.username }}
+    </p>
+
+    {% if meet_url %}
+      <a href="{{ meet_url }}" class="meet-btn">Join Google Meet Now</a>
+      <p style="color:#888;font-size:12px;margin-top:8px;">{{ meet_url }}</p>
+    {% else %}
+      <p style="color:#dc3545;font-size:14px;margin-top:16px;">
+        No Google Meet link found. Please contact your instructor.
+      </p>
+    {% endif %}
+  </div>
+  <div class="footer">
+    LMS Platform &mdash; Automated Reminder &mdash; Do not reply to this email.
+  </div>
+</div>
+</body>
+</html>

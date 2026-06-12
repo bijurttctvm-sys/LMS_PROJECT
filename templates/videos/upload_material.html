@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}Upload Study Material — {{ video.title }} — LMS{% endblock %}
+
+{% block extra_head %}
+<style>
+  .char-counter { font-size: .75rem; color: #6c757d; text-align: right; margin-top: .25rem; }
+  .tab-btn { border: 1.5px solid #dee2e6; background: #fff; color: #495057;
+             font-size: .82rem; font-weight: 600; padding: .3rem .85rem;
+             border-radius: 20px; cursor: pointer; transition: all .15s; }
+  .tab-btn.active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+  .file-type-badge {
+    display: inline-block; padding: .2em .55em; border-radius: 4px;
+    font-size: .72rem; font-weight: 600; letter-spacing: .03em;
+  }
+  .badge-pdf   { background:#fde8e8; color:#c0392b; }
+  .badge-docx  { background:#dce9fb; color:#1a5fbf; }
+  .badge-pptx  { background:#fde8d8; color:#c0541a; }
+  .badge-txt   { background:#e8f8e8; color:#1e7e34; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+
+    <!-- breadcrumb -->
+    <nav aria-label="breadcrumb" style="font-size:.8rem;" class="mb-2">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'course-detail' video.course.id %}">{{ video.course.title }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'video-detail' video.id %}">{{ video.title|truncatechars:40 }}</a></li>
+        <li class="breadcrumb-item active">Upload Study Material</li>
+      </ol>
+    </nav>
+
+    <div class="card p-4">
+      <div class="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
+        <div>
+          <h4 class="mb-0 fw-bold">
+            <i class="bi bi-file-earmark-arrow-up me-2 text-primary"></i>Upload Study Material
+          </h4>
+          <p class="text-muted small mb-0 mt-1">
+            Content for <strong>{{ video.title }}</strong> —
+            will be indexed for the AI chatbot, PDF download, and quiz generation.
+          </p>
+        </div>
+        <span class="badge bg-{{ video.status_badge_class }} align-self-start">{{ video.get_status_display }}</span>
+      </div>
+
+      <!-- Supported format badges -->
+      <div class="mb-4 d-flex gap-2 flex-wrap align-items-center">
+        <span class="text-muted small">Accepted formats:</span>
+        <span class="file-type-badge badge-pdf"><i class="bi bi-filetype-pdf me-1"></i>PDF</span>
+        <span class="file-type-badge badge-docx"><i class="bi bi-filetype-docx me-1"></i>Word (.docx)</span>
+        <span class="file-type-badge badge-pptx"><i class="bi bi-filetype-pptx me-1"></i>PowerPoint (.pptx)</span>
+        <span class="file-type-badge badge-txt"><i class="bi bi-filetype-txt me-1"></i>Plain text (.txt)</span>
+      </div>
+
+      {% if messages %}
+        {% for msg in messages %}
+        <div class="alert alert-{{ msg.tags|default:'info' }} py-2">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post" enctype="multipart/form-data" id="material-form">
+        {% csrf_token %}
+
+        <!-- ── Input method tabs ─────────────────────────────────────────── -->
+        <div class="mb-3">
+          <div class="d-flex gap-2 mb-3">
+            <button type="button" class="tab-btn active" id="tab-file" onclick="switchTab('file')">
+              <i class="bi bi-file-earmark-arrow-up me-1"></i>Upload File
+            </button>
+            <button type="button" class="tab-btn" id="tab-paste" onclick="switchTab('paste')">
+              <i class="bi bi-clipboard-text me-1"></i>Paste Text
+            </button>
+          </div>
+
+          <!-- File upload tab (default) -->
+          <div id="pane-file">
+            <label class="form-label fw-semibold">{{ form.material_file.label }}</label>
+
+            <div id="drop-zone"
+                 class="border border-2 border-dashed rounded-3 p-4 text-center"
+                 style="cursor:pointer;border-style:dashed!important;transition:background .15s;"
+                 onclick="document.getElementById('id_material_file').click()">
+              <i class="bi bi-cloud-arrow-up" style="font-size:2rem;color:#6c757d;"></i>
+              <p class="mb-1 mt-2 fw-semibold">Drag &amp; drop or <u>click to browse</u></p>
+              <p class="mb-0 text-muted small">PDF, Word, PowerPoint, or plain text — max 50 MB</p>
+              <p id="chosen-file" class="mt-2 fw-bold text-primary mb-0"></p>
+            </div>
+
+            <input type="file" name="material_file" id="id_material_file"
+                   accept=".pdf,.docx,.pptx,.ppt,.txt" class="d-none">
+
+            {% if form.material_file.help_text %}
+            <div class="form-text mt-1">{{ form.material_file.help_text }}</div>
+            {% endif %}
+            {% for err in form.material_file.errors %}
+            <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ err }}</div>
+            {% endfor %}
+          </div>
+
+          <!-- Paste text tab -->
+          <div id="pane-paste" style="display:none;">
+            <label class="form-label fw-semibold">
+              {{ form.english_content.label }}
+              <span class="text-danger">*</span>
+            </label>
+            {{ form.english_content }}
+            <div class="char-counter" id="en-counter">0 characters</div>
+            {% if form.english_content.help_text %}
+            <div class="form-text">{{ form.english_content.help_text }}</div>
+            {% endif %}
+            {% for err in form.english_content.errors %}
+            <div class="text-danger small mt-1">{{ err }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Malayalam content (always visible) -->
+        <div class="mb-3 border-top pt-3">
+          <label class="form-label fw-semibold">{{ form.malayalam_content.label }}</label>
+          {{ form.malayalam_content }}
+          <div class="char-counter" id="ml-counter">0 characters</div>
+          {% if form.malayalam_content.help_text %}
+          <div class="form-text">{{ form.malayalam_content.help_text }}</div>
+          {% endif %}
+        </div>
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger py-2">
+          {% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="d-flex gap-2 mt-4">
+          <button type="submit" class="btn btn-primary" id="submit-btn">
+            <i class="bi bi-cloud-upload me-1"></i>Save &amp; Process
+          </button>
+          <a href="{% url 'video-detail' video.id %}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Tips -->
+    <div class="card mt-3 border-0 bg-light">
+      <div class="card-body py-3">
+        <h6 class="fw-bold mb-2"><i class="bi bi-lightbulb me-1 text-warning"></i>Tips</h6>
+        <ul class="mb-0 small text-muted ps-3">
+          <li>Text is extracted automatically from PDF, Word, and PowerPoint files.</li>
+          <li>PowerPoint slides are extracted slide-by-slide — each slide becomes a searchable section.</li>
+          <li>Scanned PDFs (image-only) will not extract text. Use a text-layer PDF or paste the content manually.</li>
+          <li>You can re-upload at any time; the old index will be fully replaced.</li>
+          <li>Malayalam content is optional — the chatbot can answer in Malayalam from the English text alone.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ── Tab switching ───────────────────────────────────────────────────────── */
+function switchTab(tab) {
+  document.getElementById('pane-file').style.display  = tab === 'file'  ? '' : 'none';
+  document.getElementById('pane-paste').style.display = tab === 'paste' ? '' : 'none';
+  document.getElementById('tab-file').classList.toggle('active',  tab === 'file');
+  document.getElementById('tab-paste').classList.toggle('active', tab === 'paste');
+}
+
+/* ── Drop-zone ───────────────────────────────────────────────────────────── */
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('id_material_file');
+const chosenEl  = document.getElementById('chosen-file');
+
+function setChosen(name) {
+  chosenEl.textContent = name ? '✓ ' + name : '';
+}
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) setChosen(fileInput.files[0].name);
+});
+
+['dragover', 'dragenter'].forEach(ev =>
+  dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.style.background = '#e8f4ff'; })
+);
+['dragleave', 'drop'].forEach(ev =>
+  dropZone.addEventListener(ev, e => {
+    e.preventDefault(); dropZone.style.background = '';
+    if (ev === 'drop' && e.dataTransfer.files[0]) {
+      const dt = new DataTransfer();
+      dt.items.add(e.dataTransfer.files[0]);
+      fileInput.files = dt.files;
+      setChosen(e.dataTransfer.files[0].name);
+    }
+  })
+);
+
+/* ── Character counters ──────────────────────────────────────────────────── */
+function updateCounter(selector, counterId) {
+  const el = document.querySelector(selector);
+  if (!el) return;
+  function refresh() {
+    const n = el.value.length;
+    document.getElementById(counterId).textContent =
+      n.toLocaleString() + ' character' + (n !== 1 ? 's' : '');
+  }
+  el.addEventListener('input', refresh);
+  refresh();
+}
+updateCounter('[name="english_content"]', 'en-counter');
+updateCounter('[name="malayalam_content"]', 'ml-counter');
+
+/* ── Auto-switch to paste tab if paste field has errors ─────────────────── */
+{% if form.english_content.errors %}
+switchTab('paste');
+{% endif %}
+
+/* ── If content already exists, pre-select paste tab ────────────────────── */
+{% if video.english_transcript %}
+switchTab('paste');
+{% endif %}
+
+/* ── Submit spinner ──────────────────────────────────────────────────────── */
+document.getElementById('material-form').addEventListener('submit', function() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing…';
+});
+</script>
+{% endblock %}

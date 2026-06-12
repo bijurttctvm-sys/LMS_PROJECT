@@ -1,0 +1,92 @@
+﻿{% extends "base.html" %}
+{% load tz %}
+{% block title %}My Sessions — LMS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2>My Doubt Sessions</h2>
+    <p class="text-muted mb-0">Track your session requests and upcoming meetings.</p>
+  </div>
+  <a href="{% url "request-session" %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i>New Request
+  </a>
+</div>
+
+<!-- Sessions requiring slot choice -->
+{% if choose_sessions %}
+<div class="alert alert-info d-flex align-items-start gap-3 mb-3" role="alert">
+  <i class="bi bi-bell-fill flex-shrink-0 mt-1"></i>
+  <div>
+    <strong>Action required:</strong>
+    {% for cs in choose_sessions %}
+    Your instructor proposed time slots for
+    {% if cs.course %}<strong>{{ cs.course.title }}</strong>{% else %}your request{% endif %}.
+    <a href="{% url "choose-slot" cs.id %}" class="btn btn-info btn-sm ms-2">Choose a Slot</a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if not sessions %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-calendar-plus" style="font-size:2.5rem;opacity:.4;"></i>
+  <p class="mt-2">No sessions yet. <a href="{% url "request-session" %}">Request a doubt session.</a></p>
+</div>
+{% else %}
+<div class="d-flex flex-column gap-3">
+  {% for s in sessions %}
+  {% localtime on %}
+  <div class="card {% if s.status == "confirmed" %}border-primary{% elif s.status == "requested" %}border-warning{% elif s.status == "selected" %}border-info{% elif s.status == "attended" or s.status == "completed" %}border-success{% endif %}">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+          <p class="mb-1 fw-semibold">
+            {% if s.course %}{{ s.course.title }}{% else %}General{% endif %}
+            &mdash;
+            with {{ s.instructor.get_full_name|default:s.instructor.username }}
+          </p>
+          {% if s.slot %}
+          <p class="text-muted small mb-1">
+            <i class="bi bi-calendar3 me-1"></i>
+            {{ s.slot.slot_datetime|date:"l, F j, Y" }} at {{ s.slot.slot_datetime|date:"g:i A" }}
+          </p>
+          {% endif %}
+          {% if s.request_message %}
+          <p class="text-muted small mb-1">
+            <i class="bi bi-chat-text me-1"></i>{{ s.request_message|truncatechars:80 }}
+          </p>
+          {% endif %}
+          {% if s.status == "confirmed" and s.meet_url %}
+          <a href="{{ s.meet_url }}" target="_blank" class="btn btn-success btn-sm mt-1">
+            <i class="bi bi-camera-video me-1"></i>Join Meet
+          </a>
+          {% endif %}
+          {% if s.status == "selected" %}
+          <a href="{% url "choose-slot" s.id %}" class="btn btn-info btn-sm mt-1">
+            <i class="bi bi-check2-circle me-1"></i>Choose Time Slot
+          </a>
+          {% endif %}
+        </div>
+        <span class="badge
+          {% if s.status == "confirmed" %}bg-primary
+          {% elif s.status == "attended" or s.status == "completed" %}bg-success
+          {% elif s.status == "cancelled" %}bg-secondary
+          {% elif s.status == "no_show" %}bg-danger
+          {% elif s.status == "requested" %}bg-warning text-dark
+          {% elif s.status == "selected" %}bg-info text-dark
+          {% else %}bg-secondary{% endif %}">
+          {{ s.get_status_display }}
+        </span>
+      </div>
+    </div>
+  </div>
+  {% endlocaltime %}
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="mt-4">
+  <a href="{% url "student-dashboard" %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+</div>
+{% endblock %}

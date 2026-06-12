@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ quiz.title }} — LMS{% endblock %}
+
+{% block extra_head %}
+<style>
+  .option-card { cursor: pointer; border: 2px solid #dee2e6; transition: border-color .15s; }
+  .option-card:hover { border-color: #0d6efd; background: #f0f7ff; }
+  input[type=radio]:checked + .option-card { border-color: #0d6efd; background: #e8f0fe; }
+  input[type=radio] { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="mb-3">
+  <h2>{{ quiz.title }}</h2>
+  <p class="text-muted mb-1">{{ quiz.video.course.title }} &middot; {{ quiz.video.title }}</p>
+</div>
+
+<!-- Progress bar -->
+<div class="mb-4">
+  <div class="d-flex justify-content-between small text-muted mb-1">
+    <span>Question {{ q_number }} of {{ total }}</span>
+    <span>{{ progress_pct }}% complete</span>
+  </div>
+  <div class="progress" style="height:8px">
+    <div class="progress-bar bg-primary" style="width:{{ progress_pct }}%"></div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <p class="fs-5 fw-semibold mb-4">{{ question.question_text }}</p>
+
+    <form method="post" id="quiz-form">
+      {% csrf_token %}
+      <input type="hidden" name="question_id" value="{{ question.id }}">
+
+      <div class="d-flex flex-column gap-2">
+        {% for letter, text in options %}
+        <label>
+          <input type="radio" name="answer" value="{{ letter }}"
+                 {% if prior_answer == letter %}checked{% endif %}
+                 onchange="document.getElementById('quiz-form').submit()">
+          <div class="option-card rounded p-3 d-flex align-items-center gap-3
+                      {% if prior_answer == letter %}border-primary bg-light{% endif %}">
+            <span class="badge bg-secondary fw-bold" style="min-width:28px;font-size:.9rem;">
+              {{ letter|upper }}
+            </span>
+            <span>{{ text }}</span>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+
+      <!-- Manual submit for accessibility -->
+      <div class="mt-4 d-flex justify-content-between align-items-center">
+        {% if q_number > 1 %}
+          <a href="?q={{ q_index|add:'-1' }}" class="btn btn-outline-secondary btn-sm">&larr; Back</a>
+        {% else %}
+          <span></span>
+        {% endif %}
+        {% if prior_answer %}
+          <button type="submit" class="btn btn-primary">
+            {% if q_number == total %}Finish Quiz{% else %}Next &rarr;{% endif %}
+          </button>
+        {% else %}
+          <span class="text-muted small">Select an option to continue</span>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

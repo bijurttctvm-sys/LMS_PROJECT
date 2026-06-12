@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}LMS{% endblock %}</title>
+
+  <!-- Bootstrap 5 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <!-- Noto Sans Malayalam for ML text -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Malayalam:wght@400;600&display=swap">
+
+  <style>
+    /* ── Root variables ──────────────────────────────────────────────────────── */
+    :root {
+      --sidebar-w: 240px;
+      --topbar-h: 60px;
+      --sidebar-bg: #16191f;
+      --sidebar-text: #a9b0bb;
+      --sidebar-hover: #252a35;
+      --sidebar-active: #2a3045;
+      --sidebar-accent: #4f8ef7;
+      --topbar-bg: #ffffff;
+      --body-bg: #f0f2f5;
+    }
+
+    /* ── Body & layout shell ─────────────────────────────────────────────────── */
+    body {
+      background: var(--body-bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: .9375rem;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────────────── */
+    .lms-sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      width: var(--sidebar-w);
+      height: 100vh;
+      background: var(--sidebar-bg);
+      overflow-y: auto;
+      overflow-x: hidden;
+      z-index: 1040;
+      display: flex;
+      flex-direction: column;
+      transition: transform .25s ease;
+    }
+
+    .sidebar-brand {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      padding: 1.1rem 1.25rem;
+      text-decoration: none;
+      border-bottom: 1px solid #252a35;
+    }
+    .sidebar-brand .brand-icon {
+      width: 32px; height: 32px;
+      background: var(--sidebar-accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 1rem; font-weight: 700; flex-shrink: 0;
+    }
+    .sidebar-brand .brand-name {
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: .3px;
+    }
+    .sidebar-brand .brand-sub {
+      color: var(--sidebar-text);
+      font-size: .7rem;
+      line-height: 1;
+    }
+
+    .sidebar-section {
+      padding: .9rem 1rem .2rem;
+    }
+    .sidebar-label {
+      font-size: .65rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #555e6d;
+      font-weight: 600;
+      padding: 0 .25rem;
+    }
+
+    .sidebar-nav {
+      list-style: none;
+      padding: .25rem .75rem;
+      margin: 0;
+    }
+    .sidebar-nav li + li { margin-top: 2px; }
+    .sidebar-nav a {
+      display: flex;
+      align-items: center;
+      gap: .65rem;
+      padding: .52rem .75rem;
+      border-radius: 8px;
+      color: var(--sidebar-text);
+      text-decoration: none;
+      font-size: .875rem;
+      font-weight: 500;
+      transition: background .15s, color .15s;
+    }
+    .sidebar-nav a:hover {
+      background: var(--sidebar-hover);
+      color: #fff;
+    }
+    .sidebar-nav a.active {
+      background: var(--sidebar-active);
+      color: #fff;
+    }
+    .sidebar-nav a .nav-icon {
+      font-size: 1.05rem;
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .sidebar-nav a .nav-badge {
+      margin-left: auto;
+      font-size: .68rem;
+      padding: .15em .5em;
+      border-radius: 20px;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 1rem;
+      border-top: 1px solid #252a35;
+    }
+
+    /* ── Sidebar overlay (mobile) ────────────────────────────────────────────── */
+    .sidebar-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.5);
+      z-index: 1039;
+    }
+    .sidebar-overlay.open { display: block; }
+
+    /* ── Main area ───────────────────────────────────────────────────────────── */
+    .lms-main {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .lms-main.has-sidebar {
+      margin-left: var(--sidebar-w);
+    }
+
+    /* ── Topbar ──────────────────────────────────────────────────────────────── */
+    .lms-topbar {
+      height: var(--topbar-h);
+      background: var(--topbar-bg);
+      border-bottom: 1px solid #e3e6ec;
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .topbar-toggle {
+      display: none;
+      background: none; border: none;
+      font-size: 1.3rem; color: #555; cursor: pointer; padding: .2rem .4rem;
+    }
+    .topbar-title {
+      font-weight: 600; font-size: 1rem; color: #1a1d23;
+    }
+    .topbar-right {
+      margin-left: auto;
+      display: flex; align-items: center; gap: .75rem;
+    }
+    .topbar-icon-btn {
+      background: none; border: none;
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #555; font-size: 1.15rem; cursor: pointer;
+      transition: background .15s;
+      position: relative;
+    }
+    .topbar-icon-btn:hover { background: #f0f2f5; }
+    .notif-dot {
+      position: absolute; top: 6px; right: 6px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #dc3545;
+      border: 2px solid #fff;
+    }
+    .user-avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--sidebar-accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: .85rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .user-dropdown {
+      min-width: 200px;
+    }
+    .role-pill {
+      font-size: .68rem;
+      padding: .18em .55em;
+      border-radius: 20px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    /* ── Content area ────────────────────────────────────────────────────────── */
+    .lms-content {
+      flex: 1;
+      padding: 1.75rem 2rem;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────────────────────── */
+    .lms-footer {
+      padding: .85rem 2rem;
+      font-size: .78rem;
+      color: #9aa0ac;
+      border-top: 1px solid #e3e6ec;
+      background: #fff;
+    }
+
+    /* ── Cards ───────────────────────────────────────────────────────────────── */
+    .card {
+      border: none;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+      border-radius: 10px;
+    }
+    .card-header-flush {
+      padding: 1rem 1.25rem .5rem;
+      border-bottom: 1px solid #f0f2f5;
+    }
+
+    /* ── Progress bar ────────────────────────────────────────────────────────── */
+    .progress { border-radius: 20px; }
+
+    /* ── Stat card ───────────────────────────────────────────────────────────── */
+    .stat-card {
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+    }
+    .stat-card .stat-num {
+      font-size: 2rem; font-weight: 700; line-height: 1.1;
+    }
+    .stat-card .stat-label {
+      font-size: .8rem; color: #6c757d; margin-top: .2rem;
+    }
+
+    /* ── Status badges ───────────────────────────────────────────────────────── */
+    .badge-status-UPLOADED   { background: #6c757d; color:#fff; }
+    .badge-status-PROCESSING { background: #fd7e14; color:#fff; }
+    .badge-status-TRANSCRIBED{ background: #0dcaf0; color:#000; }
+    .badge-status-READY      { background: #198754; color:#fff; }
+    .badge-status-FAILED     { background: #dc3545; color:#fff; }
+
+    /* ── Responsive ──────────────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .lms-sidebar {
+        transform: translateX(-100%);
+      }
+      .lms-sidebar.open {
+        transform: translateX(0);
+        box-shadow: 4px 0 20px rgba(0,0,0,.3);
+      }
+      .lms-main.has-sidebar {
+        margin-left: 0;
+      }
+      .topbar-toggle { display: flex; }
+      .lms-content { padding: 1.25rem 1rem; }
+    }
+
+    /* ── Chatbot widget ──────────────────────────────────────────────────────── */
+    #chatbot-widget {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 2000;
+    }
+    #chat-toggle-btn {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: var(--sidebar-accent);
+      color: #fff;
+      border: none;
+      font-size: 1.4rem;
+      box-shadow: 0 4px 16px rgba(79,142,247,.45);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform .2s, box-shadow .2s;
+    }
+    #chat-toggle-btn:hover {
+      transform: scale(1.08);
+      box-shadow: 0 6px 20px rgba(79,142,247,.6);
+    }
+    #chat-panel {
+      display: none;
+      position: absolute;
+      bottom: 68px; right: 0;
+      width: 390px;
+      max-width: calc(100vw - 2rem);
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.18);
+      overflow: hidden;
+      flex-direction: column;
+    }
+    #chat-panel.open {
+      display: flex;
+    }
+    .chat-header {
+      background: var(--sidebar-bg);
+      color: #fff;
+      padding: .85rem 1rem;
+      display: flex; align-items: center; gap: .6rem;
+    }
+    .chat-header-title { font-weight: 600; font-size: .95rem; flex: 1; }
+    .chat-lang-toggle {
+      display: flex;
+      background: #252a35;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .chat-lang-toggle button {
+      border: none; background: none;
+      color: #a9b0bb;
+      font-size: .72rem;
+      font-weight: 600;
+      padding: .25rem .65rem;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .chat-lang-toggle button.active {
+      background: var(--sidebar-accent);
+      color: #fff;
+      border-radius: 20px;
+    }
+    .chat-close-btn {
+      background: none; border: none;
+      color: #a9b0bb; font-size: 1.1rem; cursor: pointer;
+      padding: 0 .2rem;
+    }
+    .chat-close-btn:hover { color: #fff; }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      min-height: 260px;
+      max-height: 380px;
+      background: #f8f9fb;
+      display: flex;
+      flex-direction: column;
+      gap: .65rem;
+    }
+    .chat-bubble {
+      max-width: 82%;
+      padding: .6rem .85rem;
+      border-radius: 14px;
+      font-size: .875rem;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .chat-bubble.user {
+      background: var(--sidebar-accent);
+      color: #fff;
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .chat-bubble.bot {
+      background: #fff;
+      color: #1a1d23;
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    .chat-bubble.error {
+      background: #fff3f3;
+      color: #c0392b;
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+    .chat-typing {
+      display: flex; align-items: center; gap: .3rem;
+      align-self: flex-start;
+      padding: .5rem .8rem;
+    }
+    .chat-typing span {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #aaa;
+      animation: chatdot 1.2s infinite;
+    }
+    .chat-typing span:nth-child(2) { animation-delay: .2s; }
+    .chat-typing span:nth-child(3) { animation-delay: .4s; }
+    @keyframes chatdot {
+      0%,80%,100% { transform: scale(.7); opacity:.4; }
+      40%         { transform: scale(1);  opacity:1; }
+    }
+    .chat-sources {
+      margin-top: .4rem;
+    }
+    .chat-sources summary {
+      font-size: .75rem;
+      color: #6c757d;
+      cursor: pointer;
+      list-style: none;
+      display: flex; align-items: center; gap: .3rem;
+    }
+    .chat-sources summary::before {
+      content: '▶';
+      font-size: .55rem;
+      transition: transform .15s;
+    }
+    details[open] .chat-sources summary::before { transform: rotate(90deg); }
+    .source-chip {
+      display: inline-block;
+      background: #f0f2f5;
+      border-radius: 6px;
+      padding: .2rem .5rem;
+      font-size: .72rem;
+      color: #555;
+      margin: .2rem .15rem 0 0;
+    }
+    .chat-audio {
+      margin-top: .5rem;
+      width: 100%;
+    }
+    .chat-input-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .75rem 1rem;
+      border-top: 1px solid #e9ecef;
+      background: #fff;
+    }
+    .chat-input {
+      flex: 1;
+      border: 1px solid #dee2e6;
+      border-radius: 22px;
+      padding: .5rem 1rem;
+      font-size: .875rem;
+      outline: none;
+      transition: border-color .15s;
+      resize: none;
+    }
+    .chat-input:focus { border-color: var(--sidebar-accent); }
+    .chat-icon-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 1.5px solid #dee2e6;
+      background: #fff;
+      color: #555;
+      font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .chat-icon-btn:hover { background: #f0f2f5; }
+    .chat-icon-btn.active {
+      background: #dc3545; color: #fff; border-color: #dc3545;
+    }
+    .chat-send-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: var(--sidebar-accent);
+      color: #fff;
+      font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background .15s;
+    }
+    .chat-send-btn:hover { background: #3a7bd5; }
+    .chat-send-btn:disabled { background: #aaa; cursor: default; }
+
+    /* ── No-sidebar pages (login/register) ───────────────────────────────────── */
+    .auth-page .lms-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+{% if user.is_authenticated %}
+<!-- ── Sidebar ──────────────────────────────────────────────────────────────── -->
+<aside class="lms-sidebar" id="lms-sidebar">
+
+  <a href="{% url 'home' %}" class="sidebar-brand">
+    <div class="brand-icon">L</div>
+    <div>
+      <div class="brand-name">LMS</div>
+      <div class="brand-sub">{{ user.get_role_display }}</div>
+    </div>
+  </a>
+
+  {% if user.role == 'admin' %}
+  <!-- Admin nav -->
+  <div class="sidebar-section">
+    <span class="sidebar-label">Main</span>
+    <ul class="sidebar-nav">
+      <li><a href="{% url 'admin-dashboard' %}"><span class="nav-icon"><i class="bi bi-speedometer2"></i></span>Dashboard</a></li>
+      <li><a href="{% url 'course-list' %}"><span class="nav-icon"><i class="bi bi-journal-bookmark"></i></span>Courses</a></li>
+      <li><a href="{% url 'upload-video' %}"><span class="nav-icon"><i class="bi bi-camera-video"></i></span>Upload Video</a></li>
+    </ul>
+  </div>
+  <div class="sidebar-section">
+    <span class="sidebar-label">Review</span>
+    <ul class="sidebar-nav">
+      <li>
+        <a href="{% url 'quiz-draft-list' %}">
+          <span class="nav-icon"><i class="bi bi-patch-check"></i></span>Quiz Drafts
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'admin-sessions' %}">
+          <span class="nav-icon"><i class="bi bi-calendar-check"></i></span>Doubt Sessions
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'create-user' %}">
+          <span class="nav-icon"><i class="bi bi-person-plus"></i></span>Create User
+        </a>
+      </li>
+    </ul>
+  </div>
+  <div class="sidebar-section">
+    <span class="sidebar-label">System</span>
+    <ul class="sidebar-nav">
+      <li><a href="{% url 'admin:index' %}"><span class="nav-icon"><i class="bi bi-shield-lock"></i></span>Django Admin</a></li>
+      <li><a href="{% url 'profile' %}"><span class="nav-icon"><i class="bi bi-person-circle"></i></span>Profile</a></li>
+    </ul>
+  </div>
+
+  {% elif user.role == 'instructor' %}
+  <!-- Instructor nav -->
+  <div class="sidebar-section">
+    <span class="sidebar-label">Main</span>
+    <ul class="sidebar-nav">
+      <li><a href="{% url 'instructor-dashboard' %}"><span class="nav-icon"><i class="bi bi-speedometer2"></i></span>Dashboard</a></li>
+      <li><a href="{% url 'course-list' %}"><span class="nav-icon"><i class="bi bi-journal-bookmark"></i></span>My Courses</a></li>
+      <li><a href="{% url 'upload-video' %}"><span class="nav-icon"><i class="bi bi-cloud-upload"></i></span>Upload Video</a></li>
+    </ul>
+  </div>
+  <div class="sidebar-section">
+    <span class="sidebar-label">Sessions</span>
+    <ul class="sidebar-nav">
+      <li><a href="{% url 'instructor-sessions' %}"><span class="nav-icon"><i class="bi bi-camera-video"></i></span>Doubt Sessions</a></li>
+    </ul>
+  </div>
+  <div class="sidebar-section">
+    <span class="sidebar-label">Content</span>
+    <ul class="sidebar-nav">
+      <li><a href="{% url 'quiz-draft-list' %}"><span class="nav-icon"><i class="bi bi-patch-check"></i></span>Quiz Drafts</a></li>
+      <li><a href="{% url 'profile' %}"><span class="nav-icon"><i class="bi bi-person-circle"></i></span>Profile</a></li>
+    </ul>
+  </div>
+
+  {% else %}
+  <!-- Student nav -->
+  <div class="sidebar-section">
+    <span class="sidebar-label">Main</span>
+    <ul class="sidebar-nav">
+      <li><a href="{% url 'student-dashboard' %}"><span class="nav-icon"><i class="bi bi-house"></i></span>Dashboard</a></li>
+      <li><a href="{% url 'my-courses' %}"><span class="nav-icon"><i class="bi bi-journal-bookmark"></i></span>My Courses</a></li>
+      <li><a href="{% url 'course-list' %}"><span class="nav-icon"><i class="bi bi-compass"></i></span>Browse Courses</a></li>
+    </ul>
+  </div>
+  <div class="sidebar-section">
+    <span class="sidebar-label">Learning</span>
+    <ul class="sidebar-nav">
+      <li><a href="{% url 'student-quiz-list' %}"><span class="nav-icon"><i class="bi bi-question-circle"></i></span>Quizzes</a></li>
+      <li><a href="{% url 'request-session' %}"><span class="nav-icon"><i class="bi bi-calendar-check"></i></span>Request Session</a></li>
+      <li><a href="{% url 'my-sessions' %}"><span class="nav-icon"><i class="bi bi-camera-video"></i></span>My Sessions</a></li>
+    </ul>
+  </div>
+  <div class="sidebar-section">
+    <span class="sidebar-label">Account</span>
+    <ul class="sidebar-nav">
+      <li><a href="{% url 'profile' %}"><span class="nav-icon"><i class="bi bi-person-circle"></i></span>Profile</a></li>
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- Sidebar footer -->
+  <div class="sidebar-footer">
+    <form method="post" action="{% url 'logout' %}">
+      {% csrf_token %}
+      <button type="submit"
+              style="width:100%;background:none;border:1px solid #2e3542;border-radius:8px;color:#a9b0bb;
+                     font-size:.82rem;padding:.45rem .75rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;">
+        <i class="bi bi-box-arrow-left"></i> Logout
+      </button>
+    </form>
+  </div>
+</aside>
+
+<!-- Mobile overlay -->
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+{% endif %}
+
+<!-- ── Main wrapper ─────────────────────────────────────────────────────────── -->
+<div class="lms-main {% if user.is_authenticated %}has-sidebar{% endif %}" id="lms-main">
+
+  {% if user.is_authenticated %}
+  <!-- ── Topbar ──────────────────────────────────────────────────────────────── -->
+  <header class="lms-topbar">
+    <button class="topbar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
+      <i class="bi bi-list"></i>
+    </button>
+
+    <span class="topbar-title d-none d-sm-block">{% block page_title %}{% endblock %}</span>
+
+    <div class="topbar-right">
+      <!-- Notifications bell -->
+      <div class="dropdown">
+        <button class="topbar-icon-btn" data-bs-toggle="dropdown" aria-label="Notifications">
+          <i class="bi bi-bell"></i>
+          <span class="notif-dot" id="notif-dot" style="display:none;"></span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:280px;" id="notif-dropdown">
+          <li><h6 class="dropdown-header">Notifications</h6></li>
+          <li><p class="text-muted small px-3 py-2 mb-0" id="notif-empty">No new notifications.</p></li>
+        </ul>
+      </div>
+
+      <!-- User avatar + dropdown -->
+      <div class="dropdown">
+        <div class="user-avatar" data-bs-toggle="dropdown" title="{{ user.username }}">
+          {{ user.username|slice:":2"|upper }}
+        </div>
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm user-dropdown">
+          <li class="px-3 py-2">
+            <div class="fw-semibold" style="font-size:.9rem;">{{ user.get_full_name|default:user.username }}</div>
+            <div class="text-muted" style="font-size:.75rem;">{{ user.email }}</div>
+            <span class="role-pill mt-1
+              {% if user.role == 'admin' %}bg-danger text-white
+              {% elif user.role == 'instructor' %}bg-warning text-dark
+              {% else %}bg-primary text-white{% endif %}">
+              {{ user.get_role_display }}
+            </span>
+          </li>
+          <li><hr class="dropdown-divider my-1"></li>
+          <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+          <li>
+            <form method="post" action="{% url 'logout' %}">
+              {% csrf_token %}
+              <button type="submit" class="dropdown-item text-danger">
+                <i class="bi bi-box-arrow-left me-2"></i>Logout
+              </button>
+            </form>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </header>
+  {% endif %}
+
+  <!-- ── Flash messages ─────────────────────────────────────────────────────── -->
+  {% if messages %}
+  <div style="padding:.75rem 1.5rem 0;">
+    {% for m in messages %}
+    <div class="alert alert-{{ m.tags|default:'info' }} alert-dismissible fade show py-2" role="alert">
+      <i class="bi bi-{% if 'error' in m.tags or 'danger' in m.tags %}exclamation-circle{% elif 'warning' in m.tags %}exclamation-triangle{% elif 'success' in m.tags %}check-circle{% else %}info-circle{% endif %} me-2"></i>
+      {{ m }}
+      <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ── Page content ───────────────────────────────────────────────────────── -->
+  <main class="lms-content {% block content_class %}{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+  <footer class="lms-footer">
+    LMS Platform &mdash; AI-powered multilingual learning &copy; 2026
+    {% if user.is_authenticated %}
+    &ensp;&middot;&ensp; Logged in as <strong>{{ user.username }}</strong>
+    {% endif %}
+  </footer>
+</div>
+
+<!-- ── Chatbot widget (only shown to admin/instructor, or enrolled students) ── -->
+{% if user.is_authenticated and chatbot_course_id %}
+{% if user.role != 'student' or chatbot_enrolled %}
+<div id="chatbot-widget">
+  <div id="chat-panel">
+    <!-- Header -->
+    <div class="chat-header">
+      <i class="bi bi-robot" style="font-size:1.1rem;"></i>
+      <span class="chat-header-title">Learning Assistant</span>
+      <div class="chat-lang-toggle">
+        <button id="lang-en" class="active" onclick="chatSetLang('en')">EN</button>
+        <button id="lang-ml" onclick="chatSetLang('ml')">ML</button>
+      </div>
+      <button class="chat-close-btn" onclick="chatClose()"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-messages" id="chat-messages">
+      <div class="chat-bubble bot">
+        Hi! I'm your Learning Assistant. I can answer questions about the study material for your current course.
+        {% if not chatbot_course_id %}
+        <br><span class="text-muted" style="font-size:.8rem;">Open a course or video page to start asking questions.</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chat-input" rows="1"
+                placeholder="Ask a question…"
+                onkeydown="chatKeydown(event)"></textarea>
+      <button class="chat-icon-btn" id="voice-btn" title="Toggle voice response" onclick="chatToggleVoice()">
+        <i class="bi bi-volume-up"></i>
+      </button>
+      <button class="chat-send-btn" id="chat-send" onclick="chatSend()" title="Send">
+        <i class="bi bi-send-fill"></i>
+      </button>
+    </div>
+  </div>
+
+  <button id="chat-toggle-btn" onclick="chatToggle()" title="Open Learning Assistant">
+    <i class="bi bi-chat-dots-fill" id="chat-toggle-icon"></i>
+  </button>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+{% if user.is_authenticated %}
+<script>
+/* ── Sidebar toggle ─────────────────────────────────────────────────────────── */
+const sidebar  = document.getElementById('lms-sidebar');
+const overlay  = document.getElementById('sidebar-overlay');
+const sbToggle = document.getElementById('sidebar-toggle');
+
+if (sbToggle) {
+  sbToggle.addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+  });
+}
+if (overlay) {
+  overlay.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('open');
+  });
+}
+
+/* ── Active nav link ────────────────────────────────────────────────────────── */
+(function () {
+  const path = window.location.pathname;
+  document.querySelectorAll('.sidebar-nav a').forEach(a => {
+    if (a.getAttribute('href') && path.startsWith(a.getAttribute('href')) && a.getAttribute('href') !== '/') {
+      a.classList.add('active');
+    }
+  });
+})();
+
+/* ── Chatbot ────────────────────────────────────────────────────────────────── */
+const CHATBOT_COURSE_ID = {{ chatbot_course_id|default:0 }};
+const CHATBOT_CSRF      = '{{ csrf_token }}';
+
+let chatOpen   = false;
+let chatVoice  = false;
+let chatLang   = 'en';
+
+function chatToggle() {
+  chatOpen = !chatOpen;
+  const panel = document.getElementById('chat-panel');
+  const icon  = document.getElementById('chat-toggle-icon');
+  panel.classList.toggle('open', chatOpen);
+  icon.className = chatOpen ? 'bi bi-x-lg' : 'bi bi-chat-dots-fill';
+}
+function chatClose() {
+  chatOpen = false;
+  document.getElementById('chat-panel').classList.remove('open');
+  document.getElementById('chat-toggle-icon').className = 'bi bi-chat-dots-fill';
+}
+function chatSetLang(lang) {
+  chatLang = lang;
+  document.getElementById('lang-en').classList.toggle('active', lang === 'en');
+  document.getElementById('lang-ml').classList.toggle('active', lang === 'ml');
+}
+function chatToggleVoice() {
+  chatVoice = !chatVoice;
+  document.getElementById('voice-btn').classList.toggle('active', chatVoice);
+}
+function chatKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); }
+}
+
+function chatAppend(html, cls) {
+  const msgs = document.getElementById('chat-messages');
+  const div  = document.createElement('div');
+  div.className = 'chat-bubble ' + cls;
+  div.innerHTML = html;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function chatShowTyping() {
+  const msgs = document.getElementById('chat-messages');
+  const div  = document.createElement('div');
+  div.className = 'chat-typing';
+  div.id = 'chat-typing';
+  div.innerHTML = '<span></span><span></span><span></span>';
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+function chatHideTyping() {
+  const el = document.getElementById('chat-typing');
+  if (el) el.remove();
+}
+
+async function chatSend() {
+  const input = document.getElementById('chat-input');
+  const query = input.value.trim();
+  if (!query) return;
+
+  const courseId = CHATBOT_COURSE_ID;
+  if (!courseId) {
+    chatAppend('Please navigate to a course page first to ask course-specific questions.', 'error');
+    return;
+  }
+
+  input.value = '';
+  document.getElementById('chat-send').disabled = true;
+
+  chatAppend(query, 'user');
+  chatShowTyping();
+
+  /* If ML lang selected, prepend language hint for the server */
+  const sendQuery = (chatLang === 'ml')
+    ? query  /* user types in ML or EN — server auto-detects */
+    : query;
+
+  try {
+    const resp = await fetch('/chatbot/query/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken':   CHATBOT_CSRF,
+      },
+      body: JSON.stringify({
+        query:     sendQuery,
+        course_id: courseId,
+        voice:     chatVoice,
+      }),
+    });
+
+    chatHideTyping();
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      chatAppend('<i class="bi bi-exclamation-circle me-1"></i>' +
+                 (data.error || 'Something went wrong.'), 'error');
+    } else {
+      /* Build bot bubble */
+      let html = `<div>${data.answer || '(no answer)'}</div>`;
+
+      /* Source chunks accordion */
+      if (data.source_chunks && data.source_chunks.length) {
+        html += `<details class="chat-sources mt-2">
+          <summary><i class="bi bi-card-text me-1"></i>Sources (${data.source_chunks.length})</summary>
+          <div style="margin-top:.35rem;">`;
+        data.source_chunks.forEach(c => {
+          html += `<span class="source-chip" title="${c.text}">
+            ${c.start.toFixed(0)}s–${c.end.toFixed(0)}s &middot; score ${c.score}
+          </span>`;
+        });
+        html += '</div></details>';
+      }
+
+      /* Audio player */
+      if (data.audio) {
+        html += `<audio class="chat-audio" controls>
+          <source src="data:audio/wav;base64,${data.audio}" type="audio/wav">
+        </audio>`;
+      }
+
+      chatAppend(html, 'bot');
+    }
+  } catch (err) {
+    chatHideTyping();
+    chatAppend('<i class="bi bi-wifi-off me-1"></i>Network error. Please try again.', 'error');
+  }
+
+  document.getElementById('chat-send').disabled = false;
+}
+
+/* ── Toast notifications (Celery) ───────────────────────────────────────────── */
+function lmsNotify(title, body, type) {
+  const dot      = document.getElementById('notif-dot');
+  const empty    = document.getElementById('notif-empty');
+  const dropdown = document.getElementById('notif-dropdown');
+  if (dot)   dot.style.display = 'block';
+  if (empty) empty.style.display = 'none';
+
+  const li = document.createElement('li');
+  li.innerHTML = `<div class="px-3 py-2 border-bottom">
+    <div class="fw-semibold" style="font-size:.82rem;">${title}</div>
+    <div class="text-muted" style="font-size:.75rem;">${body}</div>
+  </div>`;
+  if (dropdown) dropdown.insertBefore(li, dropdown.children[2]);
+
+  /* Bootstrap Toast */
+  const wrap = document.createElement('div');
+  wrap.className = 'position-fixed bottom-0 start-0 p-3';
+  wrap.style.zIndex = '9999';
+  wrap.innerHTML = `<div class="toast align-items-center text-bg-${type||'primary'} border-0 show" role="alert">
+    <div class="d-flex">
+      <div class="toast-body">${title}: ${body}</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>`;
+  document.body.appendChild(wrap);
+  const toastEl = wrap.querySelector('.toast');
+  const toast   = new bootstrap.Toast(toastEl, {delay: 5000});
+  toast.show();
+  toastEl.addEventListener('hidden.bs.toast', () => wrap.remove());
+}
+
+/* Expose globally for Celery SSE / polling pages */
+window.lmsNotify = lmsNotify;
+</script>
+{% endif %}
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

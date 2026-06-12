@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Upload Video — LMS{% endblock %}
+{% block extra_head %}
+<style>
+  #drop-zone {
+    border: 2px dashed #6c757d;
+    border-radius: 8px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  #drop-zone.dragover { background: #e8f4ff; border-color: #0d6efd; }
+  #progress-bar-wrap { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card p-4">
+      <h3 class="mb-3">Add Course Content</h3>
+      <p class="text-muted small mb-3">Upload a video file (optional). You will add the transcript on the next step.</p>
+      <form method="post" enctype="multipart/form-data" id="upload-form">
+        {% csrf_token %}
+
+        {% for field in form %}
+          {% if field.html_name != 'video_file' %}
+          <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {% if field.field.widget.input_type == 'select' %}
+              <select name="{{ field.html_name }}" class="form-select {% if field.errors %}is-invalid{% endif %}">
+                {% for val, label in field.field.choices %}
+                  <option value="{{ val }}" {% if field.value|stringformat:'s' == val|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            {% elif field.field.widget.input_type == 'textarea' %}
+              <textarea name="{{ field.html_name }}" class="form-control" rows="2">{{ field.value|default:'' }}</textarea>
+            {% else %}
+              <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}"
+                     value="{{ field.value|default:'' }}" class="form-control {% if field.errors %}is-invalid{% endif %}">
+            {% endif %}
+            {% for err in field.errors %}<div class="invalid-feedback d-block">{{ err }}</div>{% endfor %}
+          </div>
+          {% endif %}
+        {% endfor %}
+
+        <div class="mb-3">
+          <label class="form-label">Video File <span class="text-muted fw-normal">(optional)</span></label>
+          <div id="drop-zone" onclick="document.getElementById('id_video_file').click()">
+            <p class="mb-1">Drag &amp; drop or <u>click to browse</u></p>
+            <small class="text-muted">MP4, MKV, MOV, AVI, WEBM — max 2 GB</small>
+            <p id="file-name" class="mt-2 fw-bold text-primary"></p>
+          </div>
+          <input type="file" name="video_file" id="id_video_file" accept="video/*" class="d-none">
+        </div>
+
+        <div id="progress-bar-wrap" class="mb-3">
+          <label class="form-label">Uploading…</label>
+          <div class="progress">
+            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated"
+                 style="width: 0%">0%</div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submit-btn">Upload</button>
+        <a href="{% url 'course-list' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('id_video_file');
+const fileName  = document.getElementById('file-name');
+const form      = document.getElementById('upload-form');
+const progWrap  = document.getElementById('progress-bar-wrap');
+const progBar   = document.getElementById('progress-bar');
+const submitBtn = document.getElementById('submit-btn');
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) fileName.textContent = fileInput.files[0].name;
+});
+['dragover','dragenter'].forEach(e => dropZone.addEventListener(e, ev => {
+  ev.preventDefault(); dropZone.classList.add('dragover');
+}));
+['dragleave','drop'].forEach(e => dropZone.addEventListener(e, ev => {
+  ev.preventDefault(); dropZone.classList.remove('dragover');
+  if (e === 'drop' && ev.dataTransfer.files[0]) {
+    const dt = new DataTransfer();
+    dt.items.add(ev.dataTransfer.files[0]);
+    fileInput.files = dt.files;
+    fileName.textContent = ev.dataTransfer.files[0].name;
+  }
+}));
+
+function showUploadError(msg) {
+  progWrap.style.display = 'none';
+  submitBtn.disabled = false;
+  progBar.style.width = '0%';
+  progBar.textContent = '0%';
+  let errBox = document.getElementById('upload-error-box');
+  if (!errBox) {
+    errBox = document.createElement('div');
+    errBox.id = 'upload-error-box';
+    errBox.className = 'alert alert-danger alert-dismissible fade show mt-3';
+    errBox.innerHTML = '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+    form.prepend(errBox);
+  }
+  errBox.childNodes[1]
+    ? (errBox.childNodes[0].textContent = msg)
+    : errBox.insertBefore(document.createTextNode(msg), errBox.firstChild);
+  errBox.firstChild.textContent = msg;
+}
+
+form.addEventListener('submit', function(e) {
+  e.preventDefault();
+  const fd = new FormData(form);
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', form.action || window.location.href);
+  progWrap.style.display = 'block';
+  submitBtn.disabled = true;
+
+  xhr.upload.addEventListener('progress', ev => {
+    if (ev.lengthComputable) {
+      const pct = Math.round(ev.loaded / ev.total * 100);
+      progBar.style.width = pct + '%';
+      progBar.textContent = pct + '%';
+    }
+  });
+
+  xhr.addEventListener('load', () => {
+    // Success = server redirected away from the upload page
+    const landedOnUploadPage = xhr.responseURL.includes('/upload');
+    if (!landedOnUploadPage && xhr.responseURL) {
+      // ── Show success state before navigating ───────────────────────────
+      progBar.style.width    = '100%';
+      progBar.textContent    = '100%';
+      progBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+      progBar.classList.add('bg-success');
+
+      const successBox = document.createElement('div');
+      successBox.className = 'alert alert-success d-flex align-items-center gap-2 mt-3';
+      successBox.innerHTML  =
+        '<i class="bi bi-check-circle-fill flex-shrink-0" style="font-size:1.2rem;"></i>' +
+        '<div><strong>Video saved!</strong> Redirecting to transcript upload…</div>';
+      form.prepend(successBox);
+
+      submitBtn.textContent = 'Redirecting…';
+      setTimeout(() => { window.location.href = xhr.responseURL; }, 1500);
+      return;
+    }
+
+    // Server rendered the form again — extract the error message from the HTML
+    try {
+      const parser = new DOMParser();
+      const doc    = parser.parseFromString(xhr.responseText, 'text/html');
+      const alerts = doc.querySelectorAll('.alert');
+      if (alerts.length) {
+        const msgs = [...alerts].map(a => a.innerText || a.textContent).join(' ');
+        showUploadError(msgs.trim());
+      } else {
+        showUploadError('Upload failed — the server rejected the request. Check your R2 credentials and bucket settings.');
+      }
+    } catch (_) {
+      showUploadError('Upload failed. Please try again.');
+    }
+  });
+
+  xhr.addEventListener('error', () => {
+    showUploadError('Network error — could not reach the server. Check your connection.');
+  });
+
+  xhr.addEventListener('timeout', () => {
+    showUploadError('Upload timed out. The file may be too large or the connection is slow.');
+  });
+
+  xhr.send(fd);
+});
+</script>
+{% endblock %}

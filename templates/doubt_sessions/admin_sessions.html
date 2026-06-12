@@ -1,0 +1,105 @@
+﻿{% extends "base.html" %}
+{% load tz %}
+{% block title %}Doubt Sessions — Admin{% endblock %}
+{% block page_title %}Doubt Sessions (Admin){% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-0 fw-bold">All Doubt Sessions</h4>
+    <p class="text-muted mb-0" style="font-size:.875rem;">View and close any session across the platform.</p>
+  </div>
+  <a href="{% url "admin-dashboard" %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Dashboard
+  </a>
+</div>
+
+<!-- Filter bar -->
+<form method="get" class="d-flex gap-2 mb-3 flex-wrap">
+  <select name="status" class="form-select form-select-sm" style="max-width:200px;" onchange="this.form.submit()">
+    <option value="">All statuses</option>
+    {% for val, label in status_choices %}
+    <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  {% if status_filter %}
+  <a href="{% url "admin-sessions" %}" class="btn btn-outline-secondary btn-sm">Clear</a>
+  {% endif %}
+</form>
+
+{% if sessions %}
+<div class="table-responsive">
+  <table class="table table-sm table-hover align-middle" style="font-size:.855rem;">
+    <thead class="table-light">
+      <tr>
+        <th>#</th>
+        <th>Student</th>
+        <th>Instructor</th>
+        <th>Course</th>
+        <th>Status</th>
+        <th>Date/Time</th>
+        <th class="text-end">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr>
+        <td class="text-muted">{{ s.id }}</td>
+        <td>{{ s.student.get_full_name|default:s.student.username }}</td>
+        <td>{{ s.instructor.get_full_name|default:s.instructor.username }}</td>
+        <td>{{ s.course.title|default:"—" }}</td>
+        <td>
+          <span class="badge
+            {% if s.status == "confirmed" %}bg-primary
+            {% elif s.status == "attended" or s.status == "completed" %}bg-success
+            {% elif s.status == "cancelled" %}bg-secondary
+            {% elif s.status == "no_show" %}bg-danger
+            {% elif s.status == "requested" %}bg-warning text-dark
+            {% elif s.status == "selected" %}bg-info text-dark
+            {% else %}bg-secondary{% endif %}">
+            {{ s.get_status_display }}
+          </span>
+        </td>
+        <td>
+          {% if s.slot %}
+          {% localtime on %}{{ s.slot.slot_datetime|date:"M j, Y g:i A" }}{% endlocaltime %}
+          {% elif s.status == "requested" %}
+          <span class="text-muted">Awaiting slots</span>
+          {% elif s.status == "selected" %}
+          <span class="text-muted">Awaiting student choice</span>
+          {% else %}—{% endif %}
+        </td>
+        <td class="text-end">
+          {% if s.status not in "cancelled,completed,attended,no_show" %}
+          <div class="d-flex justify-content-end gap-1">
+            <form method="post" action="{% url "admin-close-session" s.id %}" class="d-inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="completed">
+              <button type="submit" class="btn btn-success btn-sm" title="Mark Completed"
+                      onclick="return confirm('Mark this session as completed?')">
+                <i class="bi bi-check2"></i>
+              </button>
+            </form>
+            <form method="post" action="{% url "admin-close-session" s.id %}" class="d-inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="cancelled">
+              <button type="submit" class="btn btn-outline-danger btn-sm" title="Cancel"
+                      onclick="return confirm('Cancel this session?')">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </form>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-calendar-x" style="font-size:2.5rem;opacity:.4;"></i>
+  <p class="mt-2">No sessions found.</p>
+</div>
+{% endif %}
+{% endblock %}

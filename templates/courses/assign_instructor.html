@@ -1,0 +1,42 @@
+﻿{% extends "base.html" %}
+{% block title %}Assign Instructor — LMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-1"><i class="bi bi-person-badge me-2 text-warning"></i>Assign Instructor</h5>
+        <p class="text-muted mb-4" style="font-size:.875rem;">
+          Course: <strong>{{ course.title }}</strong>
+          {% if course.instructor %}
+          &mdash; Current instructor: <strong>{{ course.instructor.username }}</strong>
+          {% else %}
+          &mdash; No instructor assigned.
+          {% endif %}
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Select Instructor</label>
+            <select name="instructor_id" class="form-select">
+              <option value="">— Remove instructor —</option>
+              {% for inst in instructors %}
+              <option value="{{ inst.id }}" {% if course.instructor_id == inst.id %}selected{% endif %}>
+                {{ inst.get_full_name|default:inst.username }} ({{ inst.username }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-warning">
+              <i class="bi bi-save me-1"></i>Save Assignment
+            </button>
+            <a href="{% url "course-detail" course.id %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

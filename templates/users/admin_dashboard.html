@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — LMS{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h4 class="mb-0 fw-bold">System Overview</h4>
+    <p class="text-muted mb-0 mt-1" style="font-size:.875rem;">Manage users, content, and review queues.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'quiz-draft-list' %}" class="btn btn-warning btn-sm">
+      <i class="bi bi-patch-check me-1"></i>
+      Review Drafts
+      {% if stats.pending_quizzes %}
+      <span class="badge bg-dark ms-1">{{ stats.pending_quizzes }}</span>
+      {% endif %}
+    </a>
+    <a href="{% url 'admin:index' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-shield-lock me-1"></i>Django Admin
+    </a>
+  </div>
+</div>
+
+<!-- ── Stats row ──────────────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card stat-card" style="border-left:4px solid #0d6efd;">
+      <div class="stat-num text-primary">{{ stats.total_users }}</div>
+      <div class="stat-label">Total Users</div>
+      <div class="d-flex gap-1 mt-2 flex-wrap">
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size:.68rem;">
+          {{ stats.students }} students
+        </span>
+        <span class="badge bg-warning-subtle text-warning border border-warning-subtle" style="font-size:.68rem;">
+          {{ stats.instructors }} instructors
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card stat-card" style="border-left:4px solid #198754;">
+      <div class="stat-num text-success">{{ stats.courses|default:"—" }}</div>
+      <div class="stat-label">Total Courses</div>
+      <div class="mt-2">
+        <a href="{% url 'course-list' %}" class="text-success text-decoration-none" style="font-size:.78rem;">
+          <i class="bi bi-arrow-right me-1"></i>View all
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card stat-card" style="border-left:4px solid #0dcaf0;">
+      <div class="stat-num" style="color:#0dcaf0;">{{ stats.videos|default:"—" }}</div>
+      <div class="stat-label">Total Videos</div>
+      <div class="mt-2">
+        <a href="{% url 'upload-video' %}" class="text-decoration-none" style="font-size:.78rem;color:#0dcaf0;">
+          <i class="bi bi-cloud-upload me-1"></i>Upload
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card stat-card {% if stats.pending_quizzes %}bg-warning-subtle{% endif %}"
+         style="border-left:4px solid #fd7e14;">
+      <div class="stat-num" style="color:#e65100;">{{ stats.pending_quizzes|default:"0" }}</div>
+      <div class="stat-label">Quiz Drafts Pending</div>
+      {% if stats.pending_quizzes %}
+      <div class="mt-2">
+        <a href="{% url 'quiz-draft-list' %}" class="text-decoration-none" style="font-size:.78rem;color:#e65100;">
+          <i class="bi bi-arrow-right me-1"></i>Review now
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Doubt sessions open banner -->
+{% if stats.open_doubt_sessions %}
+<div class="alert alert-info d-flex align-items-center gap-3 mb-4 py-2" role="alert">
+  <i class="bi bi-calendar-check flex-shrink-0" style="font-size:1.1rem;"></i>
+  <div>
+    <strong>{{ stats.open_doubt_sessions }} open doubt session{{ stats.open_doubt_sessions|pluralize }}</strong>
+    (requested, proposed, or confirmed).
+  </div>
+  <a href="{% url 'admin-sessions' %}" class="btn btn-info btn-sm ms-auto flex-shrink-0">View Sessions</a>
+</div>
+{% endif %}
+
+<!-- ── Alert if drafts pending ────────────────────────────────────────────── -->
+{% if stats.pending_quizzes %}
+<div class="alert alert-warning d-flex align-items-center gap-3 mb-4 py-2" role="alert">
+  <i class="bi bi-exclamation-triangle-fill flex-shrink-0" style="font-size:1.1rem;"></i>
+  <div>
+    <strong>{{ stats.pending_quizzes }} quiz question{{ stats.pending_quizzes|pluralize }}</strong>
+    awaiting admin review before publication.
+  </div>
+  <a href="{% url 'quiz-draft-list' %}" class="btn btn-warning btn-sm ms-auto flex-shrink-0">
+    Review Drafts
+  </a>
+</div>
+{% endif %}
+
+<div class="row g-4">
+
+  <!-- ── Left column ──────────────────────────────────────────────────────── -->
+  <div class="col-lg-8">
+
+    <!-- Recent Uploads -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h6 class="fw-bold mb-0"><i class="bi bi-camera-video me-2 text-primary"></i>Recent Video Uploads</h6>
+          <a href="{% url 'upload-video' %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-cloud-upload me-1"></i>Upload
+          </a>
+        </div>
+
+        {% if recent_videos %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0" style="font-size:.855rem;">
+            <thead class="table-light">
+              <tr>
+                <th>Title</th>
+                <th>Course</th>
+                <th class="text-center">Status</th>
+                <th class="text-muted" style="font-size:.75rem;">Uploaded</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for video in recent_videos %}
+              <tr id="admin-video-row-{{ video.id }}" data-status="{{ video.status }}"
+                  {% if video.status == 'PROCESSING' or video.status == 'UPLOADED' %}
+                  style="background:#fff8ec;"
+                  {% endif %}>
+                <td class="fw-semibold">{{ video.title|truncatechars:30 }}</td>
+                <td class="text-muted">
+                  <a href="{% url 'course-detail' video.course.id %}" class="text-muted text-decoration-none">
+                    {{ video.course.title|truncatechars:20 }}
+                  </a>
+                </td>
+                <td class="text-center">
+                  <span class="badge badge-status-{{ video.status }}"
+                        id="admin-badge-{{ video.id }}">
+                    {{ video.get_status_display }}
+                  </span>
+                </td>
+                <td class="text-muted" style="font-size:.75rem; white-space:nowrap;">
+                  {{ video.created_at|date:"M j, Y" }}
+                </td>
+                <td class="text-end">
+                  <a href="{% url 'video-detail' video.id %}" class="btn btn-link btn-sm p-0 text-primary">
+                    <i class="bi bi-arrow-right-circle"></i>
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+          <i class="bi bi-camera-video-off" style="font-size:2rem;opacity:.4;"></i>
+          <p class="mt-2 mb-0" style="font-size:.875rem;">No videos uploaded yet.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- User Management -->
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h6 class="fw-bold mb-0"><i class="bi bi-people me-2 text-success"></i>User Management</h6>
+          <div class="d-flex gap-2">
+            <a href="{% url 'create-user' %}" class="btn btn-success btn-sm">
+              <i class="bi bi-person-plus me-1"></i>Create User
+            </a>
+            <a href="{% url 'admin:users_user_changelist' %}" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-shield-lock me-1"></i>Full Manager
+            </a>
+          </div>
+        </div>
+
+        <!-- Search / filter (client-side) -->
+        <div class="d-flex gap-2 mb-3 flex-wrap">
+          <input type="text" class="form-control form-control-sm" id="user-search"
+                 placeholder="Search username or email…" style="max-width:220px;">
+          <select class="form-select form-select-sm" id="role-filter" style="max-width:140px;">
+            <option value="">All roles</option>
+            <option value="admin">Admin</option>
+            <option value="instructor">Instructor</option>
+            <option value="student">Student</option>
+          </select>
+        </div>
+
+        {% if all_users %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0" style="font-size:.845rem;" id="user-table">
+            <thead class="table-light">
+              <tr>
+                <th>User</th>
+                <th>Role</th>
+                <th>Joined</th>
+                <th class="text-center">Active</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for u in all_users %}
+              <tr data-username="{{ u.username|lower }}"
+                  data-email="{{ u.email|lower }}"
+                  data-role="{{ u.role }}">
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <div style="width:30px;height:30px;border-radius:50%;background:#e8f0fe;
+                                display:flex;align-items:center;justify-content:center;
+                                font-size:.75rem;font-weight:700;color:#1a73e8;flex-shrink:0;">
+                      {{ u.username|slice:":2"|upper }}
+                    </div>
+                    <div>
+                      <div class="fw-semibold" style="font-size:.83rem;">{{ u.username }}</div>
+                      <div class="text-muted" style="font-size:.73rem;">{{ u.email|default:"—" }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge
+                    {% if u.role == 'admin' %}bg-danger
+                    {% elif u.role == 'instructor' %}bg-warning text-dark
+                    {% else %}bg-primary{% endif %}"
+                    style="font-size:.68rem;">
+                    {{ u.get_role_display }}
+                  </span>
+                </td>
+                <td class="text-muted" style="font-size:.78rem;">{{ u.date_joined|date:"M j, Y" }}</td>
+                <td class="text-center">
+                  {% if u.is_active %}
+                  <i class="bi bi-check-circle-fill text-success"></i>
+                  {% else %}
+                  <i class="bi bi-x-circle-fill text-danger"></i>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  <a href="{% url 'admin:users_user_change' u.pk %}"
+                     class="btn btn-link btn-sm p-0 text-muted" title="Edit in Django Admin">
+                    <i class="bi bi-pencil"></i>
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted small mb-0">No users found.</p>
+        {% endif %}
+      </div>
+    </div>
+
+  </div><!-- /col-lg-8 -->
+
+  <!-- ── Right column ─────────────────────────────────────────────────────── -->
+  <div class="col-lg-4">
+
+    <!-- Quick actions -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3"><i class="bi bi-lightning me-2 text-warning"></i>Quick Actions</h6>
+        <div class="d-grid gap-2">
+          <a href="{% url 'create-user' %}" class="btn btn-outline-success btn-sm text-start">
+            <i class="bi bi-person-plus me-2"></i>Create User
+          </a>
+          <a href="{% url 'create-course' %}" class="btn btn-outline-primary btn-sm text-start">
+            <i class="bi bi-plus-circle me-2"></i>Create New Course
+          </a>
+          <a href="{% url 'admin-sessions' %}" class="btn btn-outline-info btn-sm text-start">
+            <i class="bi bi-calendar-check me-2"></i>Manage Doubt Sessions
+            {% if stats.open_doubt_sessions %}
+            <span class="badge bg-info ms-1">{{ stats.open_doubt_sessions }}</span>
+            {% endif %}
+          </a>
+          <a href="{% url 'quiz-draft-list' %}" class="btn btn-outline-warning btn-sm text-start">
+            <i class="bi bi-patch-check me-2"></i>Review Quiz Drafts
+          </a>
+          <a href="{% url 'course-list' %}" class="btn btn-outline-primary btn-sm text-start">
+            <i class="bi bi-grid me-2"></i>All Courses
+          </a>
+          <a href="{% url 'admin:index' %}" class="btn btn-outline-secondary btn-sm text-start">
+            <i class="bi bi-shield-lock me-2"></i>Django Admin Panel
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Role breakdown -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3"><i class="bi bi-pie-chart me-2 text-info"></i>User Breakdown</h6>
+        <div class="d-flex flex-column gap-2">
+          {% with total=stats.total_users %}
+          <div>
+            <div class="d-flex justify-content-between mb-1" style="font-size:.82rem;">
+              <span>Students</span>
+              <span class="fw-semibold">{{ stats.students }}</span>
+            </div>
+            <div class="progress" style="height:6px;">
+              {% if total %}<div class="progress-bar bg-primary" style="width:{% widthratio stats.students total 100 %}%"></div>{% endif %}
+            </div>
+          </div>
+          <div>
+            <div class="d-flex justify-content-between mb-1" style="font-size:.82rem;">
+              <span>Instructors</span>
+              <span class="fw-semibold">{{ stats.instructors }}</span>
+            </div>
+            <div class="progress" style="height:6px;">
+              {% if total %}<div class="progress-bar bg-warning" style="width:{% widthratio stats.instructors total 100 %}%"></div>{% endif %}
+            </div>
+          </div>
+          <div>
+            <div class="d-flex justify-content-between mb-1" style="font-size:.82rem;">
+              <span>Admins</span>
+              <span class="fw-semibold">{{ stats.admins }}</span>
+            </div>
+            <div class="progress" style="height:6px;">
+              {% if total %}<div class="progress-bar bg-danger" style="width:{% widthratio stats.admins total 100 %}%"></div>{% endif %}
+            </div>
+          </div>
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+
+    <!-- System info -->
+    <div class="card">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3"><i class="bi bi-info-circle me-2 text-secondary"></i>System</h6>
+        <div class="d-flex flex-column gap-1" style="font-size:.82rem;">
+          <div class="d-flex justify-content-between">
+            <span class="text-muted">Total Courses</span>
+            <span class="fw-semibold">{{ stats.courses|default:"—" }}</span>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span class="text-muted">Total Videos</span>
+            <span class="fw-semibold">{{ stats.videos|default:"—" }}</span>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span class="text-muted">Pending Drafts</span>
+            <span class="fw-semibold {% if stats.pending_quizzes %}text-warning{% endif %}">
+              {{ stats.pending_quizzes|default:"0" }}
+            </span>
+          </div>
+        </div>
+        <hr class="my-2">
+        <a href="{% url 'profile' %}" class="btn btn-outline-secondary btn-sm w-100">
+          <i class="bi bi-person me-1"></i>My Profile
+        </a>
+      </div>
+    </div>
+
+  </div><!-- /col-lg-4 -->
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ── User table filter ───────────────────────────────────────────────────── */
+const searchEl = document.getElementById('user-search');
+const roleEl   = document.getElementById('role-filter');
+const tbody    = document.querySelector('#user-table tbody');
+
+function filterUsers() {
+  if (!tbody) return;
+  const q    = (searchEl.value || '').toLowerCase();
+  const role = (roleEl.value   || '').toLowerCase();
+  tbody.querySelectorAll('tr').forEach(row => {
+    const un = (row.dataset.username || '');
+    const em = (row.dataset.email    || '');
+    const r  = (row.dataset.role     || '');
+    const matchQ    = !q    || un.includes(q) || em.includes(q);
+    const matchRole = !role || r === role;
+    row.style.display = (matchQ && matchRole) ? '' : 'none';
+  });
+}
+if (searchEl) searchEl.addEventListener('input', filterUsers);
+if (roleEl)   roleEl.addEventListener('change', filterUsers);
+
+/* ── Video status polling (admin) ────────────────────────────────────────── */
+(function () {
+  const rows = document.querySelectorAll('[id^="admin-video-row-"][data-status="UPLOADED"], [id^="admin-video-row-"][data-status="PROCESSING"]');
+  if (!rows.length) return;
+  const POLL_IDS = [...rows].map(r => r.id.replace('admin-video-row-', ''));
+  const DONE = new Set();
+
+  function pollOne(id) {
+    fetch(`/videos/${id}/status/`).then(r => r.json()).then(data => {
+      const badge = document.getElementById('admin-badge-' + id);
+      const row   = document.getElementById('admin-video-row-' + id);
+      if (badge) { badge.textContent = data.status_display; badge.className = 'badge badge-status-' + data.status; }
+      if (data.status === 'READY' || data.status === 'FAILED' || data.status === 'TRANSCRIBED') {
+        if (row) row.style.background = '';
+        DONE.add(id);
+        if (data.status === 'READY') {
+          window.lmsNotify && window.lmsNotify('Video Ready', 'Processing complete', 'success');
+        }
+      }
+    }).catch(() => {});
+  }
+
+  function poll() {
+    POLL_IDS.forEach(id => { if (!DONE.has(id)) pollOne(id); });
+    if (DONE.size < POLL_IDS.length) setTimeout(poll, 5000);
+  }
+  setTimeout(poll, 5000);
+})();
+</script>
+{% endblock %}
