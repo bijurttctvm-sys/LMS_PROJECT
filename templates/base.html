@@ -491,9 +491,27 @@
       transition: background .15s, color .15s, border-color .15s;
     }
     .chat-icon-btn:hover { background: #f0f2f5; }
+    .chat-icon-btn:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
     .chat-icon-btn.active {
       background: #dc3545; color: #fff; border-color: #dc3545;
     }
+    .chat-icon-btn.is-recording {
+      background: #198754;
+      color: #fff;
+      border-color: #198754;
+      animation: chatpulse 1.3s infinite;
+    }
+    .chat-status-text {
+      min-height: 1.15rem;
+      padding: 0 1rem .75rem;
+      background: #fff;
+      color: #6c757d;
+      font-size: .74rem;
+    }
+    .chat-status-text.error { color: #c0392b; }
     .chat-send-btn {
       width: 36px; height: 36px;
       border-radius: 50%;
@@ -508,6 +526,11 @@
     }
     .chat-send-btn:hover { background: #3a7bd5; }
     .chat-send-btn:disabled { background: #aaa; cursor: default; }
+    @keyframes chatpulse {
+      0%   { box-shadow: 0 0 0 0 rgba(25,135,84,.35); }
+      70%  { box-shadow: 0 0 0 10px rgba(25,135,84,0); }
+      100% { box-shadow: 0 0 0 0 rgba(25,135,84,0); }
+    }
 
     /* ── No-sidebar pages (login/register) ───────────────────────────────────── */
     .auth-page .lms-content {
@@ -762,13 +785,20 @@
       <textarea class="chat-input" id="chat-input" rows="1"
                 placeholder="Ask a question…"
                 onkeydown="chatKeydown(event)"></textarea>
+      <button class="chat-icon-btn" id="chat-mic-btn" title="Start voice input" onclick="chatToggleMic()" aria-label="Start voice input">
+        <i class="bi bi-mic-fill"></i>
+      </button>
       <button class="chat-icon-btn" id="voice-btn" title="Toggle voice response" onclick="chatToggleVoice()">
         <i class="bi bi-volume-up"></i>
+      </button>
+      <button class="chat-icon-btn" id="chat-cancel-btn" title="Cancel current query" onclick="chatCancelRequest()" aria-label="Cancel current query" disabled>
+        <i class="bi bi-x-lg"></i>
       </button>
       <button class="chat-send-btn" id="chat-send" onclick="chatSend()" title="Send">
         <i class="bi bi-send-fill"></i>
       </button>
     </div>
+    <div class="chat-status-text" id="chat-mic-status" aria-live="polite"></div>
   </div>
 
   <button id="chat-toggle-btn" onclick="chatToggle()" title="Open Learning Assistant">
@@ -824,6 +854,11 @@ let chatOpen   = false;
 let chatVoice  = false;
 let chatLang   = 'en';
 let chatCourseId = CHATBOT_COURSE_ID;
+const ChatSpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+let chatListening = false;
+let chatSpeechDraft = '';
+let chatPendingRequest = false;
+let chatRequestController = null;
 
 function chatToggle() {
   chatOpen = !chatOpen;
@@ -846,6 +881,32 @@ function chatToggleVoice() {
   chatVoice = !chatVoice;
   document.getElementById('voice-btn').classList.toggle('active', chatVoice);
 }
+function chatStopReplyAudio() {
+  document.querySelectorAll('.chat-audio').forEach(audio => {
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+    } catch (err) {
+      /* Ignore audio cleanup failures. */
+    }
+  });
+}
+async function chatAutoPlayAudio(bubble) {
+  if (!chatVoice || !bubble) return;
+
+  const audio = bubble.querySelector('.chat-audio');
+  if (!audio) return;
+
+  chatStopReplyAudio();
+  audio.autoplay = true;
+
+  try {
+    await audio.play();
+    chatSetMicStatus('');
+  } catch (err) {
+    chatSetMicStatus('Voice reply is ready. If it does not start automatically, tap the play button.', 'error');
+  }
+}
 function chatSelectCourse(courseId) {
   const parsed = parseInt(courseId, 10);
   chatCourseId = Number.isNaN(parsed) ? 0 : parsed;
@@ -861,6 +922,173 @@ function chatSelectCourse(courseId) {
 }
 function chatKeydown(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); }
+}
+function chatMicLanguage() {
+  return chatLang === 'ml' ? 'ml-IN' : 'en-US';
+}
+function chatSetMicStatus(message, tone) {
+  const status = document.getElementById('chat-mic-status');
+  if (!status) return;
+  status.textContent = message || '';
+  status.classList.toggle('error', tone === 'error');
+}
+function chatUpdateRequestControls() {
+  const sendBtn = document.getElementById('chat-send');
+  const cancelBtn = document.getElementById('chat-cancel-btn');
+  const micBtn = document.getElementById('chat-mic-btn');
+
+  if (sendBtn) {
+    sendBtn.disabled = chatPendingRequest;
+  }
+  if (cancelBtn) {
+    cancelBtn.disabled = !chatPendingRequest;
+  }
+  if (micBtn && ChatSpeechRecognition) {
+    micBtn.disabled = chatPendingRequest;
+  }
+}
+function chatUpdateMicButton() {
+  const btn = document.getElementById('chat-mic-btn');
+  if (!btn) return;
+
+  btn.disabled = !ChatSpeechRecognition || chatPendingRequest;
+  btn.classList.toggle('is-recording', chatListening);
+
+  if (!ChatSpeechRecognition) {
+    btn.title = 'Voice input is not supported in this browser';
+    btn.setAttribute('aria-label', btn.title);
+    return;
+  }
+
+  btn.title = chatListening ? 'Stop voice input' : 'Start voice input';
+  btn.setAttribute('aria-label', btn.title);
+}
+function chatCancelRequest() {
+  if (!chatPendingRequest || !chatRequestController) return;
+
+  chatRequestController.abort();
+  chatSetMicStatus('Query cancelled.');
+}
+function chatStopMic(sendAfterStop) {
+  chatListening = false;
+  chatUpdateMicButton();
+
+  const spokenQuery = (chatSpeechDraft || '').trim();
+  chatSpeechDraft = '';
+
+  if (sendAfterStop && spokenQuery) {
+    const input = document.getElementById('chat-input');
+    if (input) {
+      input.value = spokenQuery;
+      chatSetMicStatus('Voice captured. Sending your question...');
+      chatSend();
+      return;
+    }
+  }
+
+  if (sendAfterStop && !spokenQuery) {
+    chatSetMicStatus('No speech detected. Please try again.', 'error');
+  }
+}
+function chatRecognition() {
+  if (!ChatSpeechRecognition) return null;
+  if (window.__chatRecognition) return window.__chatRecognition;
+
+  const recognition = new ChatSpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = function () {
+    chatListening = true;
+    chatSpeechDraft = '';
+    chatUpdateMicButton();
+    chatSetMicStatus('Listening... speak now.');
+  };
+
+  recognition.onresult = function (event) {
+    let finalTranscript = '';
+    let interimTranscript = '';
+
+    for (let i = event.resultIndex; i < event.results.length; i += 1) {
+      const result = event.results[i];
+      const transcript = result[0] ? result[0].transcript : '';
+
+      if (result.isFinal) {
+        finalTranscript += transcript;
+      } else {
+        interimTranscript += transcript;
+      }
+    }
+
+    const input = document.getElementById('chat-input');
+    const combinedFinal = [chatSpeechDraft, finalTranscript].filter(Boolean).join(' ').trim();
+    const visibleTranscript = (combinedFinal || interimTranscript).trim();
+    if (input && visibleTranscript) {
+      input.value = visibleTranscript;
+    }
+
+    if (finalTranscript.trim()) {
+      chatSpeechDraft = combinedFinal;
+      chatSetMicStatus('Voice captured. Sending your question...');
+      recognition.stop();
+    } else if (interimTranscript.trim()) {
+      chatSetMicStatus('Transcribing...');
+    }
+  };
+
+  recognition.onerror = function (event) {
+    chatListening = false;
+    chatSpeechDraft = '';
+    chatUpdateMicButton();
+
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      chatSetMicStatus('Microphone access was blocked. Please allow it and try again.', 'error');
+    } else if (event.error === 'audio-capture') {
+      chatSetMicStatus('No microphone was found on this device.', 'error');
+    } else if (event.error === 'no-speech') {
+      chatSetMicStatus('No speech detected. Please try again.', 'error');
+    } else {
+      chatSetMicStatus('Voice input failed. Please try again.', 'error');
+    }
+  };
+
+  recognition.onend = function () {
+    const shouldSend = Boolean(chatSpeechDraft);
+    chatStopMic(shouldSend);
+  };
+
+  window.__chatRecognition = recognition;
+  return recognition;
+}
+function chatToggleMic() {
+  if (!ChatSpeechRecognition) {
+    chatSetMicStatus('Voice input needs a supported browser such as Chrome or Edge on localhost or HTTPS.', 'error');
+    chatUpdateMicButton();
+    return;
+  }
+
+  const recognition = chatRecognition();
+  if (!recognition) {
+    chatSetMicStatus('Voice input could not be started.', 'error');
+    return;
+  }
+
+  recognition.lang = chatMicLanguage();
+
+  if (chatListening) {
+    chatSpeechDraft = '';
+    recognition.stop();
+    chatSetMicStatus('Voice input stopped.');
+    return;
+  }
+
+  try {
+    chatSetMicStatus('Preparing microphone...');
+    recognition.start();
+  } catch (err) {
+    chatSetMicStatus('Voice input is busy. Please wait a moment and try again.', 'error');
+  }
 }
 
 function chatAppend(html, cls) {
@@ -888,6 +1116,8 @@ function chatHideTyping() {
 }
 
 async function chatSend() {
+  if (chatPendingRequest) return;
+
   const input = document.getElementById('chat-input');
   const query = input.value.trim();
   if (!query) return;
@@ -899,7 +1129,11 @@ async function chatSend() {
   }
 
   input.value = '';
-  document.getElementById('chat-send').disabled = true;
+  chatSetMicStatus('');
+  chatPendingRequest = true;
+  chatRequestController = new AbortController();
+  chatUpdateRequestControls();
+  chatUpdateMicButton();
 
   chatAppend(query, 'user');
   chatShowTyping();
@@ -916,9 +1150,11 @@ async function chatSend() {
         'Content-Type': 'application/json',
         'X-CSRFToken':   CHATBOT_CSRF,
       },
+      signal: chatRequestController.signal,
       body: JSON.stringify({
         query:     sendQuery,
         course_id: courseId,
+        language:  chatLang,
         voice:     chatVoice,
       }),
     });
@@ -940,15 +1176,27 @@ async function chatSend() {
         </audio>`;
       }
 
-      chatAppend(html, 'bot');
+      const bubble = chatAppend(html, 'bot');
+      if (data.audio) {
+        chatAutoPlayAudio(bubble);
+      }
     }
   } catch (err) {
     chatHideTyping();
-    chatAppend('<i class="bi bi-wifi-off me-1"></i>Network error. Please try again.', 'error');
+    if (err && err.name === 'AbortError') {
+      chatSetMicStatus('Query cancelled.');
+    } else {
+      chatAppend('<i class="bi bi-wifi-off me-1"></i>Network error. Please try again.', 'error');
+    }
+  } finally {
+    chatPendingRequest = false;
+    chatRequestController = null;
+    chatUpdateRequestControls();
+    chatUpdateMicButton();
   }
-
-  document.getElementById('chat-send').disabled = false;
 }
+chatUpdateRequestControls();
+chatUpdateMicButton();
 {% endif %}
 
 /* ── Toast notifications (Celery) ───────────────────────────────────────────── */

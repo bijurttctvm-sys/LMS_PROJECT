@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 
 logger = logging.getLogger(__name__)
+_SUPPORTED_CHAT_LANGUAGES = {"en", "ml"}
 
 # Malayalam Unicode block: U+0D00 - U+0D7F
 _ML_RE = re.compile(r"[\u0D00-\u0D7F]")
@@ -13,6 +14,13 @@ _ML_RE = re.compile(r"[\u0D00-\u0D7F]")
 
 def _is_malayalam(text: str) -> bool:
     return bool(_ML_RE.search(text))
+
+
+def _normalise_chat_language(value) -> str:
+    if not isinstance(value, str):
+        return ""
+    language = value.strip().lower()
+    return language if language in _SUPPORTED_CHAT_LANGUAGES else ""
 
 
 def _student_can_query_course(user, course_id: int) -> bool:
@@ -94,6 +102,7 @@ def chatbot_query(request):
     query = body.get("query", "").strip()
     course_id = body.get("course_id")
     want_voice = bool(body.get("voice", False))
+    requested_language = _normalise_chat_language(body.get("language"))
 
     if not query:
         return JsonResponse({"error": "query is required"}, status=400)
@@ -115,7 +124,7 @@ def chatbot_query(request):
         )
 
     query_is_malayalam = _is_malayalam(query)
-    response_language = "ml" if query_is_malayalam else "en"
+    response_language = "ml" if (requested_language == "ml" or query_is_malayalam) else "en"
 
     english_query = query
     if query_is_malayalam:
@@ -183,7 +192,7 @@ def chatbot_query(request):
         set_cached_result(cache_key, answer_en)
 
     answer_final = answer_en
-    if query_is_malayalam:
+    if response_language == "ml":
         try:
             answer_final = _sarvam_translate(answer_en, "en-IN", "ml-IN")
         except Exception as exc:
@@ -192,7 +201,7 @@ def chatbot_query(request):
     audio_b64 = None
     if want_voice:
         try:
-            tts_lang = "ml-IN" if query_is_malayalam else "en-IN"
+            tts_lang = "ml-IN" if response_language == "ml" else "en-IN"
             audio_b64 = _sarvam_tts(answer_final, language=tts_lang)
         except Exception as exc:
             logger.warning("TTS failed: %s", exc)

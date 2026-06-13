@@ -120,6 +120,75 @@ class ChatbotQueryViewTest(TestCase):
         self.assertIn("source_chunks", body)
         self.assertEqual(body["language"], "en")
 
+    def test_selected_ml_language_returns_malayalam_answer_and_voice(self):
+        fake_chunks = [
+            {"text": "Python is a language", "video_id": 1,
+             "start": 0.0, "end": 5.0, "score": 0.9}
+        ]
+        with patch("utils.embeddings.generate_query_embedding",
+                   return_value=[0.1] * 1024), \
+             patch("utils.pinecone_client.search_chunks",
+                   return_value=fake_chunks), \
+             patch("utils.groq_llm.get_answer",
+                   return_value="Python is a general-purpose language."), \
+             patch("chatbot.views._sarvam_translate",
+                   return_value="പൈത്തൺ ഒരു പൊതുവായ പ്രോഗ്രാമിംഗ് ഭാഷയാണ്."), \
+             patch("chatbot.views._sarvam_tts",
+                   return_value="FAKE_AUDIO"), \
+             patch("utils.redis_cache.get_cached_result", return_value=None), \
+             patch("utils.redis_cache.set_cached_result"):
+            r = self.client.post(
+                "/chatbot/query/",
+                data=json.dumps({
+                    "query": "what is python",
+                    "course_id": self.course.id,
+                    "language": "ml",
+                    "voice": True,
+                }),
+                content_type="application/json",
+            )
+
+        self.assertEqual(r.status_code, 200)
+        body = json.loads(r.content)
+        self.assertEqual(body["language"], "ml")
+        self.assertEqual(body["answer"], "പൈത്തൺ ഒരു പൊതുവായ പ്രോഗ്രാമിംഗ് ഭാഷയാണ്.")
+        self.assertEqual(body["audio"], "FAKE_AUDIO")
+
+    def test_malayalam_query_translates_to_english_then_back_to_malayalam(self):
+        fake_chunks = [
+            {"text": "Python is a language", "video_id": 1,
+             "start": 0.0, "end": 5.0, "score": 0.9}
+        ]
+        with patch("chatbot.views._sarvam_translate") as mock_translate, \
+             patch("utils.embeddings.generate_query_embedding",
+                   return_value=[0.1] * 1024) as mock_embed, \
+             patch("utils.pinecone_client.search_chunks",
+                   return_value=fake_chunks), \
+             patch("utils.groq_llm.get_answer",
+                   return_value="Python is a general-purpose language."), \
+             patch("utils.redis_cache.get_cached_result", return_value=None), \
+             patch("utils.redis_cache.set_cached_result"):
+            mock_translate.side_effect = [
+                "What is Python?",
+                "പൈത്തൺ ഒരു പൊതുവായ പ്രോഗ്രാമിംഗ് ഭാഷയാണ്.",
+            ]
+            r = self.client.post(
+                "/chatbot/query/",
+                data=json.dumps({
+                    "query": "പൈത്തൺ എന്താണ്?",
+                    "course_id": self.course.id,
+                    "language": "ml",
+                }),
+                content_type="application/json",
+            )
+
+        self.assertEqual(r.status_code, 200)
+        body = json.loads(r.content)
+        self.assertEqual(body["language"], "ml")
+        self.assertEqual(body["answer"], "പൈത്തൺ ഒരു പൊതുവായ പ്രോഗ്രാമിംഗ് ഭാഷയാണ്.")
+        mock_embed.assert_called_once_with("What is Python?")
+        self.assertEqual(mock_translate.call_count, 2)
+
     def test_cache_hit_skips_infra(self):
         """Redis cache hit must not call embedding/Pinecone/Groq."""
         with patch("utils.redis_cache.get_cached_result",
@@ -219,3 +288,41 @@ class LearningAssistantVisibilityTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Learning Assistant")
+
+
+class LearningAssistantVoiceInputTests(TestCase):
+    def setUp(self):
+        self.student = User.objects.create_user(
+            username="voice_student",
+            password="pass123",
+            role=User.Role.STUDENT,
+        )
+        self.instructor = User.objects.create_user(
+            username="voice_teacher",
+            password="pass123",
+            role=User.Role.INSTRUCTOR,
+        )
+        self.course = Course.objects.create(
+            title="Voice Enabled Course",
+            instructor=self.instructor,
+            is_active=True,
+        )
+        Enrollment.objects.create(
+            student=self.student,
+            course=self.course,
+            is_active=True,
+        )
+
+    def test_student_dashboard_shows_voice_input_button(self):
+        self.client.force_login(self.student)
+
+        response = self.client.get("/student-dashboard/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="chat-mic-btn"')
+        self.assertContains(response, 'id="chat-cancel-btn"')
+        self.assertContains(response, "Start voice input")
+        self.assertContains(response, "chatAutoPlayAudio")
+        self.assertContains(response, "chatCancelRequest")
+        self.assertContains(response, "AbortController")
+        self.assertContains(response, "language:  chatLang")
