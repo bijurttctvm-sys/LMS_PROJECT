@@ -34,7 +34,11 @@
 <div class="alert alert-warning d-flex align-items-center gap-3 mb-3" role="alert">
   <i class="bi bi-hourglass-split flex-shrink-0"></i>
   <div class="flex-grow-1">
+    {% if pending_request.status == "postponed" %}
+    <strong>Instructor postponed:</strong> Your instructor will propose 3 new time slots shortly.
+    {% else %}
     <strong>Pending request:</strong> Your doubt session request is waiting for instructor response.
+    {% endif %}
   </div>
   <a href="{% url 'my-sessions' %}" class="btn btn-outline-warning btn-sm flex-shrink-0">View</a>
 </div>

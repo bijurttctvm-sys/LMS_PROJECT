@@ -10,27 +10,99 @@ from .models import Quiz, QuizDraft, QuizQuestion, StudentQuizAttempt
 
 # ── Access helpers ─────────────────────────────────────────────────────────────
 
-def _admin_required(view_func):
+def _reviewer_home(user):
+    if user.role == User.Role.ADMIN:
+        return 'admin-dashboard'
+    if user.role == User.Role.INSTRUCTOR:
+        return 'instructor-dashboard'
+    return 'home'
+
+
+def _can_review_video(user, video):
+    if user.role == User.Role.ADMIN:
+        return True
+    return (
+        user.role == User.Role.INSTRUCTOR
+        and video.course.instructor_id == user.id
+    )
+
+
+def _reviewable_drafts(user):
+    drafts = QuizDraft.objects.select_related('video', 'video__course')
+    if user.role == User.Role.ADMIN:
+        return drafts
+    if user.role == User.Role.INSTRUCTOR:
+        return drafts.filter(video__course__instructor=user)
+    return drafts.none()
+
+
+def _reviewer_required(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('login')
-        if request.user.role != User.Role.ADMIN:
-            messages.error(request, 'Admin access required.')
+        if request.user.role not in (User.Role.ADMIN, User.Role.INSTRUCTOR):
+            messages.error(request, 'Quiz review access required.')
             return redirect('home')
         return view_func(request, *args, **kwargs)
     return wrapper
 
 
+def _student_required(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('login')
+        if request.user.role != User.Role.STUDENT:
+            messages.error(request, 'Student access required.')
+            return redirect('home')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def _apply_draft_approval_fields(draft, data, prefix=''):
+    draft.question_text = data.get(f'{prefix}question_text', draft.question_text).strip()
+    draft.option_a = data.get(f'{prefix}option_a', draft.option_a).strip()
+    draft.option_b = data.get(f'{prefix}option_b', draft.option_b).strip()
+    draft.option_c = data.get(f'{prefix}option_c', draft.option_c).strip()
+    draft.option_d = data.get(f'{prefix}option_d', draft.option_d).strip()
+    correct = data.get(f'{prefix}correct_option', draft.correct_option).strip().lower()
+    draft.correct_option = correct if correct in ('a', 'b', 'c', 'd') else draft.correct_option
+    draft.explanation = data.get(f'{prefix}explanation', draft.explanation).strip()
+    draft.status = QuizDraft.Status.APPROVED
+    draft.admin_note = ''
+
+
+def _publish_approved_drafts(video, title):
+    approved = QuizDraft.objects.filter(video=video, status=QuizDraft.Status.APPROVED)
+    quiz = Quiz.objects.create(video=video, title=title, is_published=True)
+    questions_to_create = [
+        QuizQuestion(
+            quiz=quiz,
+            question_text=d.question_text,
+            option_a=d.option_a,
+            option_b=d.option_b,
+            option_c=d.option_c,
+            option_d=d.option_d,
+            correct_option=d.correct_option,
+            explanation=d.explanation,
+            order=i,
+        )
+        for i, d in enumerate(approved.order_by('created_at'), start=1)
+    ]
+    QuizQuestion.objects.bulk_create(questions_to_create)
+    approved.delete()
+    return quiz, len(questions_to_create)
+
+
 # ── Admin views ────────────────────────────────────────────────────────────────
 
-@_admin_required
+@_reviewer_required
 def quiz_draft_list(request):
     """Pending quiz drafts grouped by video."""
     pending = (
-        QuizDraft.objects
+        _reviewable_drafts(request.user)
         .filter(status=QuizDraft.Status.PENDING)
-        .select_related('video', 'video__course')
         .order_by('video', 'created_at')
     )
     groups = {}
@@ -40,9 +112,8 @@ def quiz_draft_list(request):
     # Also show videos that have approved (not yet published) drafts
     approved_by_video = {}
     approved = (
-        QuizDraft.objects
+        _reviewable_drafts(request.user)
         .filter(status=QuizDraft.Status.APPROVED)
-        .select_related('video', 'video__course')
     )
     for draft in approved:
         approved_by_video.setdefault(draft.video, 0)
@@ -55,27 +126,21 @@ def quiz_draft_list(request):
     })
 
 
-@_admin_required
+@_reviewer_required
 def review_quiz_draft(request, draft_id):
     """Approve (optionally edit fields), or reject a single draft question."""
     draft = get_object_or_404(QuizDraft, id=draft_id)
+    if not _can_review_video(request.user, draft.video):
+        messages.error(request, 'You do not have access to review that draft.')
+        return redirect(_reviewer_home(request.user))
 
     if request.method == 'POST':
         action = request.POST.get('action', '').strip()
 
         if action == 'approve':
-            draft.question_text  = request.POST.get('question_text', draft.question_text).strip()
-            draft.option_a       = request.POST.get('option_a', draft.option_a).strip()
-            draft.option_b       = request.POST.get('option_b', draft.option_b).strip()
-            draft.option_c       = request.POST.get('option_c', draft.option_c).strip()
-            draft.option_d       = request.POST.get('option_d', draft.option_d).strip()
-            correct              = request.POST.get('correct_option', draft.correct_option).strip().lower()
-            draft.correct_option = correct if correct in ('a', 'b', 'c', 'd') else draft.correct_option
-            draft.explanation    = request.POST.get('explanation', draft.explanation).strip()
-            draft.status         = QuizDraft.Status.APPROVED
-            draft.admin_note     = ''
+            _apply_draft_approval_fields(draft, request.POST)
             draft.save()
-            messages.success(request, 'Question approved.')
+            messages.success(request, 'Question approved. Publish the quiz to make it visible to students.')
             return redirect('quiz-draft-list')
 
         elif action == 'reject':
@@ -108,11 +173,74 @@ def review_quiz_draft(request, draft_id):
     })
 
 
-@_admin_required
+@_reviewer_required
+def bulk_review_quiz_drafts(request, video_id):
+    """Review all pending draft questions for a video in one screen."""
+    from videos.models import Video
+
+    video = get_object_or_404(Video.objects.select_related('course'), id=video_id)
+    if not _can_review_video(request.user, video):
+        messages.error(request, 'You do not have access to review drafts for that course.')
+        return redirect(_reviewer_home(request.user))
+
+    drafts = list(
+        QuizDraft.objects
+        .filter(video=video, status=QuizDraft.Status.PENDING)
+        .order_by('created_at')
+    )
+    if not drafts:
+        messages.info(request, 'No pending quiz drafts are available for bulk review.')
+        return redirect('quiz-draft-list')
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '').strip()
+
+        if action == 'approve_all':
+            for draft in drafts:
+                _apply_draft_approval_fields(draft, request.POST, prefix=f'{draft.id}_')
+                draft.save()
+            messages.success(
+                request,
+                f'Approved {len(drafts)} question(s). Publish the quiz to make it visible to students.'
+            )
+            return redirect('quiz-draft-list')
+
+        if action == 'approve_and_publish':
+            for draft in drafts:
+                _apply_draft_approval_fields(draft, request.POST, prefix=f'{draft.id}_')
+                draft.save()
+            title = request.POST.get('title', f'Quiz: {video.title}').strip() or f'Quiz: {video.title}'
+            _, question_count = _publish_approved_drafts(video, title)
+            messages.success(
+                request,
+                f'Quiz "{title}" published with {question_count} questions. Enrolled students can access it now.'
+            )
+            return redirect('quiz-draft-list')
+
+        if action == 'reject_all':
+            note = request.POST.get('admin_note', '').strip()
+            for draft in drafts:
+                draft.status = QuizDraft.Status.REJECTED
+                draft.admin_note = note
+                draft.save(update_fields=['status', 'admin_note'])
+            messages.warning(request, f'Rejected {len(drafts)} question(s).')
+            return redirect('quiz-draft-list')
+
+    return render(request, 'quizzes/bulk_review.html', {
+        'video': video,
+        'drafts': drafts,
+        'total': len(drafts),
+    })
+
+
+@_reviewer_required
 def publish_quiz(request, video_id):
     """Publish all approved questions for a video as a Quiz."""
     from videos.models import Video
     video    = get_object_or_404(Video, id=video_id)
+    if not _can_review_video(request.user, video):
+        messages.error(request, 'You do not have access to publish quizzes for that course.')
+        return redirect(_reviewer_home(request.user))
     approved = QuizDraft.objects.filter(video=video, status=QuizDraft.Status.APPROVED)
 
     if not approved.exists():
@@ -121,26 +249,8 @@ def publish_quiz(request, video_id):
 
     if request.method == 'POST':
         title = request.POST.get('title', f'Quiz: {video.title}').strip() or f'Quiz: {video.title}'
-        quiz  = Quiz.objects.create(video=video, title=title, is_published=True)
-
-        questions_to_create = [
-            QuizQuestion(
-                quiz           = quiz,
-                question_text  = d.question_text,
-                option_a       = d.option_a,
-                option_b       = d.option_b,
-                option_c       = d.option_c,
-                option_d       = d.option_d,
-                correct_option = d.correct_option,
-                explanation    = d.explanation,
-                order          = i,
-            )
-            for i, d in enumerate(approved.order_by('created_at'), start=1)
-        ]
-        QuizQuestion.objects.bulk_create(questions_to_create)
-        approved.delete()
-
-        messages.success(request, f'Quiz "{title}" published with {len(questions_to_create)} questions.')
+        _, question_count = _publish_approved_drafts(video, title)
+        messages.success(request, f'Quiz "{title}" published with {question_count} questions.')
         return redirect('quiz-draft-list')
 
     return render(request, 'quizzes/publish_quiz.html', {
@@ -152,7 +262,7 @@ def publish_quiz(request, video_id):
 
 # ── Student views ──────────────────────────────────────────────────────────────
 
-@login_required
+@_student_required
 def student_quiz_list(request):
     """Published quizzes for the courses a student is enrolled in."""
     from courses.models import Enrollment
@@ -180,20 +290,18 @@ def student_quiz_list(request):
     return render(request, 'quizzes/quiz_list.html', {'quiz_list': quiz_list})
 
 
-@login_required
+@_student_required
 def take_quiz(request, quiz_id):
     """One question at a time; answers stored in session until final submit."""
     quiz      = get_object_or_404(Quiz, id=quiz_id, is_published=True)
 
-    # Students must be enrolled in the course this quiz belongs to
-    if request.user.role == User.Role.STUDENT:
-        from courses.models import Enrollment
-        enrolled = Enrollment.objects.filter(
-            student=request.user, course=quiz.video.course, is_active=True
-        ).exists()
-        if not enrolled:
-            messages.error(request, 'You are not enrolled in this course.')
-            return redirect('student-quiz-list')
+    from courses.models import Enrollment
+    enrolled = Enrollment.objects.filter(
+        student=request.user, course=quiz.video.course, is_active=True
+    ).exists()
+    if not enrolled:
+        messages.error(request, 'You are not enrolled in this course.')
+        return redirect('student-quiz-list')
 
     questions = list(quiz.questions.order_by('order'))
     total     = len(questions)
@@ -262,20 +370,18 @@ def take_quiz(request, quiz_id):
     })
 
 
-@login_required
+@_student_required
 def quiz_results(request, quiz_id):
     """Score card with per-question correct/incorrect breakdown."""
     quiz    = get_object_or_404(Quiz, id=quiz_id)
 
-    # Students must be enrolled in the course
-    if request.user.role == User.Role.STUDENT:
-        from courses.models import Enrollment
-        enrolled = Enrollment.objects.filter(
-            student=request.user, course=quiz.video.course, is_active=True
-        ).exists()
-        if not enrolled:
-            messages.error(request, 'You are not enrolled in this course.')
-            return redirect('student-quiz-list')
+    from courses.models import Enrollment
+    enrolled = Enrollment.objects.filter(
+        student=request.user, course=quiz.video.course, is_active=True
+    ).exists()
+    if not enrolled:
+        messages.error(request, 'You are not enrolled in this course.')
+        return redirect('student-quiz-list')
 
     attempt = get_object_or_404(StudentQuizAttempt, student=request.user, quiz=quiz)
 

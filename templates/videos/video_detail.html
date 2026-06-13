@@ -16,7 +16,7 @@
   }
   @media (max-width: 1100px) {
     .video-wrap { grid-template-columns: 1fr; }
-    .transcript-col { order: 2; }
+  .content-col { order: 2; }
     .video-col      { order: 1; }
   }
 
@@ -37,14 +37,14 @@
     color: #6c757d; font-size: .9rem; gap: .5rem;
   }
 
-  /* ── Transcript panel ──────────────────────────────────────────────────── */
-  .transcript-panel {
+  /* ── Content panel ─────────────────────────────────────────────────────── */
+  .content-panel {
     max-height: 70vh;
     overflow-y: auto;
     scroll-behavior: smooth;
   }
-  .transcript-panel::-webkit-scrollbar { width: 5px; }
-  .transcript-panel::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 10px; }
+  .content-panel::-webkit-scrollbar { width: 5px; }
+  .content-panel::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 10px; }
 
   .lang-panel { display: none; }
   .lang-panel.active { display: block; }
@@ -108,18 +108,20 @@
       {{ video.get_status_display }}
     </span>
     {% if user.role == 'admin' or user.role == 'instructor' %}
-      {% if video.status == 'READY' %}
+      {% if video.english_transcript and not video.quiz_drafts.count and not video.quizzes.count %}
       <form method="post" action="{% url 'generate-quiz' video.id %}" class="d-inline">
         {% csrf_token %}
         <button type="submit" class="btn btn-outline-warning btn-sm"
-                onclick="return confirm('Generate AI quiz questions for this video?')">
-          <i class="bi bi-robot me-1"></i>Generate Quiz
+                onclick="return confirm('Generate AI quiz draft questions for this content?')">
+          <i class="bi bi-robot me-1"></i>Generate Quiz Drafts
         </button>
       </form>
       {% endif %}
-      {% if video.quiz_drafts.count %}
+      {% if pending_draft_count or approved_draft_count %}
       <a href="{% url 'quiz-draft-list' %}" class="btn btn-warning btn-sm">
-        <i class="bi bi-patch-check me-1"></i>Review Drafts ({{ video.quiz_drafts.count }})
+        <i class="bi bi-patch-check me-1"></i>Quiz Drafts
+        {% if pending_draft_count %}({{ pending_draft_count }} pending{% if approved_draft_count %}, {% endif %}{% endif %}
+        {% if approved_draft_count %}{{ approved_draft_count }} approved{% endif %})
       </a>
       {% endif %}
     {% endif %}
@@ -138,7 +140,7 @@
 {% endif %}
 
 <!-- ── Status alerts ──────────────────────────────────────────────────────── -->
-{% if video.status == 'UPLOADED' %}
+{% if not video.english_transcript %}
 <div class="alert alert-warning d-flex align-items-center justify-content-between gap-3 mb-3 py-2 flex-wrap">
   <div class="d-flex align-items-center gap-2">
     <i class="bi bi-upload flex-shrink-0"></i>
@@ -153,11 +155,11 @@
 {% elif video.status == 'PROCESSING' %}
 <div class="alert alert-info d-flex align-items-center gap-2 mb-3 py-2" id="processing-alert">
   <div class="spinner-border spinner-border-sm text-info flex-shrink-0" role="status"></div>
-  <span>Generating search index and PDF — this may take a minute.</span>
+  <span>Generating search index and PDF. If this takes longer than {{ processing_timeout_minutes }} minutes, it will time out automatically.</span>
 </div>
 {% elif video.status == 'FAILED' %}
 <div class="alert alert-danger d-flex align-items-center justify-content-between gap-3 mb-3 py-2 flex-wrap">
-  <div><i class="bi bi-exclamation-triangle me-2"></i>Processing failed. Re-upload the study material to try again.</div>
+  <div><i class="bi bi-exclamation-triangle me-2"></i>Processing failed or timed out. Re-upload the study material to try again.</div>
   {% if user.role == 'admin' or user.role == 'instructor' %}
   <a href="{% url 'upload-material' video.id %}" class="btn btn-danger btn-sm flex-shrink-0">
     <i class="bi bi-arrow-repeat me-1"></i>Re-upload Material
@@ -194,24 +196,14 @@
       {% if video.duration_seconds %}
       <span><i class="bi bi-clock me-1"></i>Duration: <strong>{{ video.duration_seconds|floatformat:0 }}s</strong></span>
       {% endif %}
-      {% if english_pdf_url %}
-      <a href="{{ english_pdf_url }}" class="text-decoration-none" download>
-        <i class="bi bi-file-earmark-pdf me-1"></i>EN PDF
-      </a>
-      {% endif %}
-      {% if malayalam_pdf_url %}
-      <a href="{{ malayalam_pdf_url }}" class="text-decoration-none" download>
-        <i class="bi bi-file-earmark-pdf me-1"></i>ML PDF
-      </a>
-      {% endif %}
     </div>
 
-    <!-- ── Full transcript (below player on desktop) ────────────────────── -->
+    <!-- ── Full study material (below player on desktop) ────────────────── -->
     {% if video.english_transcript %}
     <div class="card">
       <div class="card-body">
         <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-          <h6 class="fw-bold mb-0 me-2">Transcript</h6>
+          <h6 class="fw-bold mb-0 me-2">Study Material</h6>
           <div class="d-flex gap-1">
             <button class="lang-toggle-btn active" id="btn-en" onclick="showLang('en')">English</button>
             <button class="lang-toggle-btn"        id="btn-ml" onclick="showLang('ml')">Malayalam</button>
@@ -225,11 +217,11 @@
         </div>
 
         <div id="panel-en" class="lang-panel active">
-          <p style="white-space:pre-wrap;line-height:1.75;font-size:.9rem;margin:0;">{{ video.english_transcript|default:"No transcript yet." }}</p>
+          <p style="white-space:pre-wrap;line-height:1.75;font-size:.9rem;margin:0;">{{ video.english_transcript|default:"No study material yet." }}</p>
         </div>
         <div id="panel-ml" class="lang-panel">
           <p style="white-space:pre-wrap;line-height:2;font-size:.95rem;
-                    font-family:'Noto Sans Malayalam',sans-serif;margin:0;">{{ video.malayalam_transcript|default:"No Malayalam transcript yet." }}</p>
+                    font-family:'Noto Sans Malayalam',sans-serif;margin:0;">{{ video.malayalam_transcript|default:"No Malayalam study material yet." }}</p>
         </div>
         <div id="panel-both" class="lang-panel">
           <div class="row g-3">
@@ -250,8 +242,8 @@
 
   </div><!-- /video-col -->
 
-  <!-- ── Right: Transcript chunks (synced to playhead) ──────────────────── -->
-  <div class="transcript-col">
+  <!-- ── Right: Content chapters (synced to playhead) ───────────────────── -->
+  <div class="content-col">
     <div class="card h-100">
       <div class="card-body p-0">
         <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
@@ -263,7 +255,7 @@
 
         {% if chunks %}
           {% if chunks %}
-          <div class="transcript-panel p-2" id="chunk-list">
+          <div class="content-panel p-2" id="chunk-list">
             {% for chunk in chunks %}
             <div class="chunk-row d-flex align-items-start gap-2"
                  id="chunk-{{ chunk.chunk_index }}"
@@ -299,13 +291,13 @@
             <p class="mb-0" style="font-size:.85rem;">Generating index…</p>
             {% else %}
             <i class="bi bi-card-list" style="font-size:1.75rem;opacity:.4;"></i>
-            <p class="mt-2 mb-0" style="font-size:.85rem;">Upload a transcript to see chapters.</p>
+            <p class="mt-2 mb-0" style="font-size:.85rem;">Upload study material to see chapters.</p>
             {% endif %}
           </div>
         {% endif %}
       </div>
     </div>
-  </div><!-- /transcript-col -->
+  </div><!-- /content-col -->
 
 </div><!-- /video-wrap -->
 

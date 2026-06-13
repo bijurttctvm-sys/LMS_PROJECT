@@ -81,6 +81,10 @@ def student_dashboard(request):
         .select_related('course', 'course__instructor')
         .prefetch_related('course__videos')
     )
+    chatbot_courses = [
+        {'id': enrollment.course_id, 'title': enrollment.course.title}
+        for enrollment in enrollments
+    ]
 
     upcoming_session = (
         DoubtSession.objects
@@ -95,7 +99,10 @@ def student_dashboard(request):
 
     pending_request = (
         DoubtSession.objects
-        .filter(student=request.user, status=DoubtSession.Status.REQUESTED)
+        .filter(
+            student=request.user,
+            status__in=[DoubtSession.Status.REQUESTED, DoubtSession.Status.POSTPONED],
+        )
         .first()
     )
 
@@ -113,16 +120,15 @@ def student_dashboard(request):
         .order_by('-completed_at')[:5]
     )
 
-    course_ids = list(enrollments.values_list('course_id', flat=True))
-
     return render(request, 'users/student_dashboard.html', {
         'enrollments':       enrollments,
         'upcoming_session':  upcoming_session,
         'pending_request':   pending_request,
         'slots_to_choose':   slots_to_choose,
         'recent_attempts':   recent_attempts,
-        'chatbot_course_id': course_ids[0] if course_ids else 0,
-        'chatbot_enrolled':  bool(course_ids),
+        'chatbot_course_id': chatbot_courses[0]['id'] if chatbot_courses else 0,
+        'chatbot_courses':   chatbot_courses,
+        'chatbot_enrolled':  bool(chatbot_courses),
     })
 
 
@@ -131,6 +137,11 @@ def instructor_dashboard(request):
     from doubt_sessions.models import DoubtSession
     from quizzes.models import QuizDraft
     from videos.models import Video
+
+    Video.objects.filter(
+        course__instructor=request.user,
+        status=Video.Status.UPLOADED,
+    ).exclude(english_transcript='').update(status=Video.Status.PROCESSING)
 
     courses = list(
         request.user.courses_taught
@@ -157,13 +168,19 @@ def instructor_dashboard(request):
         video__course__instructor=request.user,
         status=QuizDraft.Status.PENDING,
     ).count()
+    approved_drafts_count = QuizDraft.objects.filter(
+        video__course__instructor=request.user,
+        status=QuizDraft.Status.APPROVED,
+    ).count()
 
-    recent_videos = (
+    recent_videos = list(
         Video.objects
         .filter(course__instructor=request.user)
         .select_related('course')
         .order_by('-created_at')[:6]
     )
+    for video in recent_videos:
+        video.sync_runtime_status()
 
     from courses.models import Enrollment
     total_students = Enrollment.objects.filter(
@@ -175,6 +192,8 @@ def instructor_dashboard(request):
         'pending_requests_count': pending_requests_count,
         'upcoming_sessions':      upcoming_sessions,
         'pending_drafts_count':   pending_drafts_count,
+        'approved_drafts_count':  approved_drafts_count,
+        'reviewable_drafts_count': pending_drafts_count + approved_drafts_count,
         'recent_videos':          recent_videos,
         'total_students':         total_students,
     })
@@ -184,6 +203,10 @@ def instructor_dashboard(request):
 def admin_dashboard(request):
     from doubt_sessions.models import DoubtSession
     from videos.models import Video
+
+    Video.objects.filter(
+        status=Video.Status.UPLOADED,
+    ).exclude(english_transcript='').update(status=Video.Status.PROCESSING)
 
     stats = {
         'total_users': User.objects.count(),
@@ -219,6 +242,8 @@ def admin_dashboard(request):
     recent_videos = list(
         Video.objects.select_related('course').order_by('-created_at')[:5]
     )
+    for video in recent_videos:
+        video.sync_runtime_status()
     all_users = list(
         User.objects.order_by('-date_joined').select_related()[:20]
     )

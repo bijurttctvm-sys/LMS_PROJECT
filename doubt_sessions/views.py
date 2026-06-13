@@ -200,7 +200,10 @@ def instructor_sessions(request):
 
     pending_requests = (
         DoubtSession.objects
-        .filter(instructor=request.user, status=DoubtSession.Status.REQUESTED)
+        .filter(
+            instructor=request.user,
+            status__in=[DoubtSession.Status.REQUESTED, DoubtSession.Status.POSTPONED],
+        )
         .select_related('student', 'course')
         .order_by('created_at')
     )
@@ -224,7 +227,13 @@ def instructor_sessions(request):
     past = (
         DoubtSession.objects
         .filter(instructor=request.user)
-        .exclude(status__in=[DoubtSession.Status.REQUESTED, DoubtSession.Status.SELECTED])
+        .exclude(
+            status__in=[
+                DoubtSession.Status.REQUESTED,
+                DoubtSession.Status.SELECTED,
+                DoubtSession.Status.POSTPONED,
+            ]
+        )
         .select_related('student', 'slot', 'course')
         .order_by('-created_at')[:30]
     )
@@ -243,7 +252,7 @@ def propose_slots(request, session_id):
         DoubtSession,
         id=session_id,
         instructor=request.user,
-        status=DoubtSession.Status.REQUESTED,
+        status__in=[DoubtSession.Status.REQUESTED, DoubtSession.Status.POSTPONED],
     )
 
     if request.method == 'POST':
@@ -292,11 +301,15 @@ def propose_slots(request, session_id):
 
 @_instructor_required
 def mark_outcome(request, session_id):
-    """Instructor: mark a session ATTENDED or NO_SHOW."""
+    """Instructor: mark a confirmed session as attended, not attended, or postponed."""
     session = get_object_or_404(DoubtSession, id=session_id, instructor=request.user)
 
     if request.method == 'POST':
         outcome = request.POST.get('outcome', '').strip()
+        if session.status != DoubtSession.Status.CONFIRMED:
+            messages.error(request, 'Only confirmed sessions can be updated here.')
+            return redirect('instructor-sessions')
+
         if outcome == 'attended':
             session.status           = DoubtSession.Status.ATTENDED
             session.last_attended_at = timezone.now()
@@ -307,7 +320,31 @@ def mark_outcome(request, session_id):
             session.save(update_fields=['status'])
             if session.slot:
                 InstructorSlot.objects.filter(id=session.slot_id).update(is_available=True)
-            messages.warning(request, 'Session marked as no-show.')
+            messages.warning(request, 'Session marked as not attended.')
+        elif outcome == 'postponed':
+            if session.instructor_postponed_once:
+                messages.error(request, 'This session has already been postponed once.')
+                return redirect('instructor-sessions')
+
+            if session.slot_id:
+                InstructorSlot.objects.filter(id=session.slot_id).update(is_available=True)
+            session.proposed_slots.all().delete()
+            session.slot = None
+            session.meet_url = ''
+            session.status = DoubtSession.Status.POSTPONED
+            session.instructor_postponed_once = True
+            session.save(
+                update_fields=[
+                    'slot',
+                    'meet_url',
+                    'status',
+                    'instructor_postponed_once',
+                ]
+            )
+            messages.warning(
+                request,
+                'Session postponed. Please propose 3 new time slots for the student.',
+            )
         else:
             messages.error(request, 'Invalid outcome.')
 

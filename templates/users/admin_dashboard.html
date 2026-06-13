@@ -6,16 +6,9 @@
 <div class="d-flex align-items-center justify-content-between mb-4">
   <div>
     <h4 class="mb-0 fw-bold">System Overview</h4>
-    <p class="text-muted mb-0 mt-1" style="font-size:.875rem;">Manage users, content, and review queues.</p>
+    <p class="text-muted mb-0 mt-1" style="font-size:.875rem;">Manage users and monitor the platform overview.</p>
   </div>
   <div class="d-flex gap-2">
-    <a href="{% url 'quiz-draft-list' %}" class="btn btn-warning btn-sm">
-      <i class="bi bi-patch-check me-1"></i>
-      Review Drafts
-      {% if stats.pending_quizzes %}
-      <span class="badge bg-dark ms-1">{{ stats.pending_quizzes }}</span>
-      {% endif %}
-    </a>
     <a href="{% url 'admin:index' %}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-shield-lock me-1"></i>Django Admin
     </a>
@@ -52,12 +45,7 @@
   <div class="col-6 col-lg-3">
     <div class="card stat-card" style="border-left:4px solid #0dcaf0;">
       <div class="stat-num" style="color:#0dcaf0;">{{ stats.videos|default:"—" }}</div>
-      <div class="stat-label">Total Videos</div>
-      <div class="mt-2">
-        <a href="{% url 'upload-video' %}" class="text-decoration-none" style="font-size:.78rem;color:#0dcaf0;">
-          <i class="bi bi-cloud-upload me-1"></i>Upload
-        </a>
-      </div>
+      <div class="stat-label">Content Items</div>
     </div>
   </div>
   <div class="col-6 col-lg-3">
@@ -65,42 +53,13 @@
          style="border-left:4px solid #fd7e14;">
       <div class="stat-num" style="color:#e65100;">{{ stats.pending_quizzes|default:"0" }}</div>
       <div class="stat-label">Quiz Drafts Pending</div>
-      {% if stats.pending_quizzes %}
-      <div class="mt-2">
-        <a href="{% url 'quiz-draft-list' %}" class="text-decoration-none" style="font-size:.78rem;color:#e65100;">
-          <i class="bi bi-arrow-right me-1"></i>Review now
-        </a>
-      </div>
-      {% endif %}
     </div>
   </div>
 </div>
 
 <!-- Doubt sessions open banner -->
-{% if stats.open_doubt_sessions %}
-<div class="alert alert-info d-flex align-items-center gap-3 mb-4 py-2" role="alert">
-  <i class="bi bi-calendar-check flex-shrink-0" style="font-size:1.1rem;"></i>
-  <div>
-    <strong>{{ stats.open_doubt_sessions }} open doubt session{{ stats.open_doubt_sessions|pluralize }}</strong>
-    (requested, proposed, or confirmed).
-  </div>
-  <a href="{% url 'admin-sessions' %}" class="btn btn-info btn-sm ms-auto flex-shrink-0">View Sessions</a>
-</div>
-{% endif %}
 
 <!-- ── Alert if drafts pending ────────────────────────────────────────────── -->
-{% if stats.pending_quizzes %}
-<div class="alert alert-warning d-flex align-items-center gap-3 mb-4 py-2" role="alert">
-  <i class="bi bi-exclamation-triangle-fill flex-shrink-0" style="font-size:1.1rem;"></i>
-  <div>
-    <strong>{{ stats.pending_quizzes }} quiz question{{ stats.pending_quizzes|pluralize }}</strong>
-    awaiting admin review before publication.
-  </div>
-  <a href="{% url 'quiz-draft-list' %}" class="btn btn-warning btn-sm ms-auto flex-shrink-0">
-    Review Drafts
-  </a>
-</div>
-{% endif %}
 
 <div class="row g-4">
 
@@ -111,10 +70,7 @@
     <div class="card mb-4">
       <div class="card-body">
         <div class="d-flex align-items-center justify-content-between mb-3">
-          <h6 class="fw-bold mb-0"><i class="bi bi-camera-video me-2 text-primary"></i>Recent Video Uploads</h6>
-          <a href="{% url 'upload-video' %}" class="btn btn-outline-primary btn-sm">
-            <i class="bi bi-cloud-upload me-1"></i>Upload
-          </a>
+          <h6 class="fw-bold mb-0"><i class="bi bi-camera-video me-2 text-primary"></i>Recent Content Uploads</h6>
         </div>
 
         {% if recent_videos %}
@@ -163,7 +119,7 @@
         {% else %}
         <div class="text-center py-4 text-muted">
           <i class="bi bi-camera-video-off" style="font-size:2rem;opacity:.4;"></i>
-          <p class="mt-2 mb-0" style="font-size:.875rem;">No videos uploaded yet.</p>
+          <p class="mt-2 mb-0" style="font-size:.875rem;">No content uploaded yet.</p>
         </div>
         {% endif %}
       </div>
@@ -276,15 +232,6 @@
           <a href="{% url 'create-course' %}" class="btn btn-outline-primary btn-sm text-start">
             <i class="bi bi-plus-circle me-2"></i>Create New Course
           </a>
-          <a href="{% url 'admin-sessions' %}" class="btn btn-outline-info btn-sm text-start">
-            <i class="bi bi-calendar-check me-2"></i>Manage Doubt Sessions
-            {% if stats.open_doubt_sessions %}
-            <span class="badge bg-info ms-1">{{ stats.open_doubt_sessions }}</span>
-            {% endif %}
-          </a>
-          <a href="{% url 'quiz-draft-list' %}" class="btn btn-outline-warning btn-sm text-start">
-            <i class="bi bi-patch-check me-2"></i>Review Quiz Drafts
-          </a>
           <a href="{% url 'course-list' %}" class="btn btn-outline-primary btn-sm text-start">
             <i class="bi bi-grid me-2"></i>All Courses
           </a>
@@ -343,7 +290,7 @@
             <span class="fw-semibold">{{ stats.courses|default:"—" }}</span>
           </div>
           <div class="d-flex justify-content-between">
-            <span class="text-muted">Total Videos</span>
+            <span class="text-muted">Content Items</span>
             <span class="fw-semibold">{{ stats.videos|default:"—" }}</span>
           </div>
           <div class="d-flex justify-content-between">

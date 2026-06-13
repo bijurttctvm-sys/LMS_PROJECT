@@ -2,8 +2,10 @@ import uuid
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from users.models import User
 from .forms import StudyMaterialUploadForm, VideoUploadForm
@@ -40,6 +42,28 @@ def _course_is_locked(course, user):
     if not video_qs.exists():
         return False
     return bool(video_qs.first().english_transcript)
+
+
+def _user_can_access_course(user, course):
+    if user.role in (User.Role.ADMIN, User.Role.INSTRUCTOR):
+        return True
+    if user.role != User.Role.STUDENT:
+        return False
+
+    from courses.models import Enrollment
+    return Enrollment.objects.filter(
+        student=user, course=course, is_active=True
+    ).exists()
+
+
+def _repair_stale_video_status(video):
+    """Backfill old status values and enforce processing timeout."""
+    if video.processing_started_at is None and video.status == Video.Status.PROCESSING:
+        fallback_started_at = video.created_at
+        if fallback_started_at and video.has_study_material():
+            video.processing_started_at = fallback_started_at
+            video.save(update_fields=['processing_started_at'])
+    return video.sync_runtime_status()
 
 
 @_instructor_or_admin
@@ -81,7 +105,7 @@ def upload_video_view(request):
 
             messages.success(
                 request,
-                f'"{video.title}" saved. Now upload the study material to make it searchable.'
+                f'"{video.title}" saved. Now upload the study material to complete the content.'
             )
             return redirect('upload-material', video_id=video.id)
     else:
@@ -120,21 +144,31 @@ def upload_material_view(request, video_id):
                     })
 
             video.english_transcript = english_text
-            if malayalam_text:
-                video.malayalam_transcript = malayalam_text
-            video.save(update_fields=['english_transcript', 'malayalam_transcript'])
+            video.malayalam_transcript = malayalam_text
+            video.status = Video.Status.PROCESSING
+            video.processing_started_at = timezone.now()
+            video.save(update_fields=[
+                'english_transcript',
+                'malayalam_transcript',
+                'status',
+                'processing_started_at',
+            ])
 
+            processing_queued = False
             try:
                 from videos.tasks import process_study_material
-                process_study_material.delay(video.id)
-                messages.success(
-                    request,
-                    'Study material saved. Generating PDF and search index in the background...'
-                )
+                transaction.on_commit(lambda: process_study_material.delay(video.id))
+                processing_queued = True
             except Exception as exc:
                 messages.warning(
                     request,
                     f'Material saved but background processing unavailable: {exc}'
+                )
+
+            if processing_queued:
+                messages.success(
+                    request,
+                    'Study material saved. Quiz draft generation and content processing started in the background.'
                 )
 
             return redirect('video-detail', video_id=video.id)
@@ -207,47 +241,51 @@ def _extract_pptx(data):
 def video_list_view(request, course_id):
     from courses.models import Course
     course = get_object_or_404(Course, id=course_id)
+    if not _user_can_access_course(request.user, course):
+        messages.error(
+            request,
+            'You are not enrolled in this course. Contact your admin to get access.'
+        )
+        return redirect('course-list')
     videos = Video.objects.filter(course=course)
     return render(request, 'videos/video_list.html', {'course': course, 'videos': videos})
 
 
 @login_required
 def video_detail_view(request, video_id):
-    video = get_object_or_404(Video, id=video_id)
+    video = _repair_stale_video_status(get_object_or_404(Video, id=video_id))
 
-    # Students must be enrolled in the course to access content
-    if request.user.role == User.Role.STUDENT:
-        from courses.models import Enrollment
-        enrolled = Enrollment.objects.filter(
-            student=request.user, course=video.course, is_active=True
-        ).exists()
-        if not enrolled:
-            messages.error(
-                request,
-                'You are not enrolled in this course. Contact your admin to get access.'
-            )
-            return redirect('course-detail', course_id=video.course_id)
+    if not _user_can_access_course(request.user, video.course):
+        messages.error(
+            request,
+            'You are not enrolled in this course. Contact your admin to get access.'
+        )
+        return redirect('course-list')
 
     course_locked = _course_is_locked(video.course, request.user)
 
-    # chatbot_enrolled: True for non-students, or enrolled students
-    if request.user.role == User.Role.STUDENT:
-        from courses.models import Enrollment
-        chatbot_enrolled = Enrollment.objects.filter(
-            student=request.user, course_id=video.course_id, is_active=True
-        ).exists()
-    else:
-        chatbot_enrolled = True
+    chatbot_enrolled = request.user.role == User.Role.STUDENT and _user_can_access_course(
+        request.user, video.course
+    )
 
+    pending_draft_count = video.quiz_drafts.filter(status='pending').count()
+    approved_draft_count = video.quiz_drafts.filter(status='approved').count()
     chunks = video.chunks.all()
     return render(request, 'videos/video_detail.html', {
         'video':             video,
         'chunks':            chunks,
         'course_locked':     course_locked,
+        'pending_draft_count': pending_draft_count,
+        'approved_draft_count': approved_draft_count,
+        'processing_timeout_minutes': int(Video.PROCESSING_TIMEOUT.total_seconds() // 60),
         'signed_url':        _try_signed_url(video.video_key),
         'english_pdf_url':   _try_signed_url(video.english_pdf_key),
         'malayalam_pdf_url': _try_signed_url(video.malayalam_pdf_key),
-        'chatbot_course_id': video.course_id,
+        'chatbot_course_id': video.course_id if chatbot_enrolled else 0,
+        'chatbot_courses':   (
+            [{'id': video.course_id, 'title': video.course.title}]
+            if chatbot_enrolled else []
+        ),
         'chatbot_enrolled':  chatbot_enrolled,
     })
 
@@ -259,16 +297,43 @@ def generate_quiz_view(request, video_id):
     if request.method != 'POST':
         return redirect('video-detail', video_id=video.id)
 
-    if video.status != Video.Status.READY:
-        messages.error(request, 'Quiz generation requires a fully processed video (status: READY).')
+    if not (video.english_transcript or '').strip():
+        messages.error(request, 'Quiz generation requires study material first.')
         return redirect('video-detail', video_id=video.id)
 
     try:
-        from videos.tasks import generate_quiz
-        generate_quiz.delay(video.id)
+        from videos.tasks import queue_quiz_generation
+        queued = queue_quiz_generation(video.id)
+        if not queued:
+            pending_draft_count = video.quiz_drafts.filter(status='pending').count()
+            approved_draft_count = video.quiz_drafts.filter(status='approved').count()
+            if pending_draft_count or approved_draft_count:
+                messages.info(
+                    request,
+                    f'Quiz draft already exists for this content. Open Quiz Drafts to review {pending_draft_count} pending and {approved_draft_count} approved question(s).'
+                )
+                return redirect('quiz-draft-list')
+            has_published_quiz = video.quizzes.filter(is_published=True).exists()
+            has_unpublished_quiz = video.quizzes.filter(is_published=False).exists()
+            if has_published_quiz:
+                messages.info(
+                    request,
+                    'Quiz generation was skipped because this content already has a published quiz.'
+                )
+            elif has_unpublished_quiz:
+                messages.info(
+                    request,
+                    'Quiz generation was skipped because this content already has a saved quiz.'
+                )
+            else:
+                messages.info(
+                    request,
+                    'Quiz generation was skipped because this content already has a quiz.'
+                )
+            return redirect('video-detail', video_id=video.id)
         messages.success(
             request,
-            'Quiz generation started — you will be notified by email when the draft is ready.'
+            'Quiz generation started. The draft will appear in the review queue shortly.'
         )
     except Exception as exc:
         messages.warning(request, f'Task queue unavailable: {exc}')
@@ -278,7 +343,9 @@ def generate_quiz_view(request, video_id):
 
 @login_required
 def video_status_api(request, video_id):
-    video = get_object_or_404(Video, id=video_id)
+    video = _repair_stale_video_status(get_object_or_404(Video, id=video_id))
+    if not _user_can_access_course(request.user, video.course):
+        return JsonResponse({'error': 'Forbidden'}, status=403)
     return JsonResponse({
         'id':                video.id,
         'status':            video.status,
@@ -286,4 +353,5 @@ def video_status_api(request, video_id):
         'chunk_count':       video.chunks.count(),
         'has_english_pdf':   bool(video.english_pdf_key),
         'has_malayalam_pdf': bool(video.malayalam_pdf_key),
+        'processing_timed_out': video.status == Video.Status.FAILED,
     })

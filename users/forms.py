@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
+import re
 
 from .models import User
 
@@ -21,6 +22,20 @@ class RegisterForm(UserCreationForm):
 
 
 class ProfileForm(forms.ModelForm):
+    MEET_CODE_RE = re.compile(r'^[a-z]{3}-[a-z]{4}-[a-z]{3}$', re.IGNORECASE)
+    MEET_LINK_RE = re.compile(
+        r'^(?:https?://)?meet\.google\.com/(?P<code>[a-z]{3}-[a-z]{4}-[a-z]{3})/?$',
+        re.IGNORECASE,
+    )
+
+    google_meet_link = forms.CharField(
+        required=False,
+        help_text='Paste a full Google Meet link, meet.google.com/... link, or just the meet code.',
+        widget=forms.TextInput(
+            attrs={'placeholder': 'https://meet.google.com/abc-defg-rft or abc-defg-rft'}
+        ),
+    )
+
     class Meta:
         model = User
         fields = (
@@ -35,6 +50,21 @@ class ProfileForm(forms.ModelForm):
         widgets = {
             'preferred_language': forms.Select(choices=User.Language.choices),
         }
+
+    def clean_google_meet_link(self):
+        value = (self.cleaned_data.get('google_meet_link') or '').strip()
+        if not value:
+            return ''
+
+        compact_value = ''.join(value.split())
+        if self.MEET_CODE_RE.fullmatch(compact_value):
+            return f'https://meet.google.com/{compact_value.lower()}'
+
+        match = self.MEET_LINK_RE.fullmatch(compact_value)
+        if match:
+            return f"https://meet.google.com/{match.group('code').lower()}"
+
+        raise forms.ValidationError('Enter a valid Google Meet link or meet code.')
 
 
 class CreateUserForm(forms.ModelForm):

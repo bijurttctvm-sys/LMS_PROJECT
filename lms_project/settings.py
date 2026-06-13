@@ -6,6 +6,7 @@ All credentials are read from environment variables via python-dotenv.
 """
 
 import os
+import sys
 from pathlib import Path
 
 import dj_database_url
@@ -86,6 +87,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'chatbot.context_processors.learning_assistant_context',
             ],
         },
     },
@@ -97,15 +99,25 @@ WSGI_APPLICATION = 'lms_project.wsgi.application'
 # Database
 # PostgreSQL via dj-database-url; falls back to local SQLite when DATABASE_URL
 # is unset or empty so the project runs out of the box.
-DATABASE_URL = os.environ.get('DATABASE_URL') or f'sqlite:///{BASE_DIR / "db.sqlite3"}'
-DATABASES = {
-    'default': dj_database_url.parse(
-        DATABASE_URL,
-        conn_max_age=600,
-        conn_health_checks=True,
-        ssl_require=DATABASE_URL.startswith('postgresql') or DATABASE_URL.startswith('postgres'),
-    )
-}
+RUNNING_TESTS = len(sys.argv) > 1 and sys.argv[1] == 'test'
+
+if RUNNING_TESTS:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'test_db.sqlite3',
+        }
+    }
+else:
+    DATABASE_URL = os.environ.get('DATABASE_URL') or f'sqlite:///{BASE_DIR / "db.sqlite3"}'
+    DATABASES = {
+        'default': dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=DATABASE_URL.startswith('postgresql') or DATABASE_URL.startswith('postgres'),
+        )
+    }
 
 
 # Custom user model
@@ -170,6 +182,10 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+# In local development we default Celery to eager mode so uploads, chunking,
+# quiz generation, and emails still work without a running Redis/Celery stack.
+CELERY_TASK_ALWAYS_EAGER = env_bool('CELERY_TASK_ALWAYS_EAGER', default=DEBUG)
+CELERY_TASK_EAGER_PROPAGATES = env_bool('CELERY_TASK_EAGER_PROPAGATES', default=DEBUG)
 
 
 # Cloudflare R2 (S3-compatible) object storage

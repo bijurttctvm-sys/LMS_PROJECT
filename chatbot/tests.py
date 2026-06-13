@@ -4,6 +4,9 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
 
+from courses.models import Course, Enrollment
+from utils.groq_llm import _clean_answer_style
+
 User = get_user_model()
 
 
@@ -14,6 +17,20 @@ class ChatbotQueryViewTest(TestCase):
             username="testchatbot", email="tc@test.com",
             password="pass123", role="student"
         )
+        self.instructor = User.objects.create_user(
+            username="teacherchatbot", email="teacher@test.com",
+            password="pass123", role="instructor"
+        )
+        self.course = Course.objects.create(
+            title="Python Basics",
+            instructor=self.instructor,
+            is_active=True,
+        )
+        Enrollment.objects.create(
+            student=self.user,
+            course=self.course,
+            is_active=True,
+        )
         self.client.login(username="testchatbot", password="pass123")
 
     def test_get_returns_405(self):
@@ -22,7 +39,7 @@ class ChatbotQueryViewTest(TestCase):
 
     def test_missing_query_returns_400(self):
         r = self.client.post("/chatbot/query/",
-                             data=json.dumps({"course_id": 1}),
+                             data=json.dumps({"course_id": self.course.id}),
                              content_type="application/json")
         self.assertEqual(r.status_code, 400)
         self.assertIn("error", json.loads(r.content))
@@ -48,7 +65,7 @@ class ChatbotQueryViewTest(TestCase):
              patch("utils.redis_cache.set_cached_result"):
             r = self.client.post(
                 "/chatbot/query/",
-                data=json.dumps({"query": "what is python", "course_id": 1}),
+                data=json.dumps({"query": "what is python", "course_id": self.course.id}),
                 content_type="application/json",
             )
 
@@ -68,7 +85,7 @@ class ChatbotQueryViewTest(TestCase):
              patch("utils.redis_cache.set_cached_result"):
             r = self.client.post(
                 "/chatbot/query/",
-                data=json.dumps({"query": "hello", "course_id": 1}),
+                data=json.dumps({"query": "hello", "course_id": self.course.id}),
                 content_type="application/json",
             )
 
@@ -92,7 +109,7 @@ class ChatbotQueryViewTest(TestCase):
              patch("utils.redis_cache.set_cached_result"):
             r = self.client.post(
                 "/chatbot/query/",
-                data=json.dumps({"query": "what is python", "course_id": 1}),
+                data=json.dumps({"query": "what is python", "course_id": self.course.id}),
                 content_type="application/json",
             )
 
@@ -111,7 +128,7 @@ class ChatbotQueryViewTest(TestCase):
              patch("utils.pinecone_client.search_chunks") as mock_search:
             r = self.client.post(
                 "/chatbot/query/",
-                data=json.dumps({"query": "what is python", "course_id": 1}),
+                data=json.dumps({"query": "what is python", "course_id": self.course.id}),
                 content_type="application/json",
             )
 
@@ -125,6 +142,80 @@ class ChatbotQueryViewTest(TestCase):
         """Unauthenticated request gets redirected to login page."""
         c = Client()
         r = c.post("/chatbot/query/",
-                   data=json.dumps({"query": "hi", "course_id": 1}),
+                   data=json.dumps({"query": "hi", "course_id": self.course.id}),
                    content_type="application/json")
         self.assertEqual(r.status_code, 302)
+
+    def test_instructor_cannot_use_learning_assistant(self):
+        instructor_client = Client()
+        instructor_client.login(username="teacherchatbot", password="pass123")
+
+        response = instructor_client.post(
+            "/chatbot/query/",
+            data=json.dumps({"query": "hello", "course_id": self.course.id}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("Learning Assistant", json.loads(response.content)["error"])
+
+    def test_student_cannot_query_unenrolled_course(self):
+        other_course = Course.objects.create(
+            title="Restricted Course",
+            instructor=self.instructor,
+            is_active=True,
+        )
+
+        response = self.client.post(
+            "/chatbot/query/",
+            data=json.dumps({"query": "hello", "course_id": other_course.id}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+
+class GroqAnswerStyleTests(TestCase):
+    def test_clean_answer_style_removes_lecture_content_lead_in(self):
+        answer = "Based on the lecture content, Python is an interpreted language."
+        self.assertEqual(
+            _clean_answer_style(answer),
+            "Python is an interpreted language.",
+        )
+
+    def test_clean_answer_style_removes_document_shared_lead_in(self):
+        answer = "Based on the document shared: Variables store values."
+        self.assertEqual(
+            _clean_answer_style(answer),
+            "Variables store values.",
+        )
+
+
+class LearningAssistantVisibilityTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="admin_visibility",
+            password="pass123",
+            role=User.Role.ADMIN,
+        )
+        self.instructor = User.objects.create_user(
+            username="instructor_visibility",
+            password="pass123",
+            role=User.Role.INSTRUCTOR,
+        )
+
+    def test_admin_dashboard_does_not_show_learning_assistant(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get("/admin-dashboard/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Learning Assistant")
+
+    def test_instructor_dashboard_does_not_show_learning_assistant(self):
+        self.client.force_login(self.instructor)
+
+        response = self.client.get("/instructor-dashboard/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Learning Assistant")

@@ -326,6 +326,29 @@
       display: flex; align-items: center; gap: .6rem;
     }
     .chat-header-title { font-weight: 600; font-size: .95rem; flex: 1; }
+    .chat-course-picker {
+      padding: .75rem 1rem;
+      border-bottom: 1px solid #edf0f5;
+      background: #fff;
+    }
+    .chat-course-picker label {
+      display: block;
+      color: #6c757d;
+      font-size: .72rem;
+      font-weight: 600;
+      margin-bottom: .35rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .chat-course-picker select {
+      width: 100%;
+      border: 1px solid #d8dee8;
+      border-radius: 10px;
+      padding: .55rem .7rem;
+      font-size: .84rem;
+      background: #f8f9fb;
+      color: #1a1d23;
+    }
     .chat-lang-toggle {
       display: flex;
       background: #252a35;
@@ -517,22 +540,11 @@
     <ul class="sidebar-nav">
       <li><a href="{% url 'admin-dashboard' %}"><span class="nav-icon"><i class="bi bi-speedometer2"></i></span>Dashboard</a></li>
       <li><a href="{% url 'course-list' %}"><span class="nav-icon"><i class="bi bi-journal-bookmark"></i></span>Courses</a></li>
-      <li><a href="{% url 'upload-video' %}"><span class="nav-icon"><i class="bi bi-camera-video"></i></span>Upload Video</a></li>
     </ul>
   </div>
   <div class="sidebar-section">
-    <span class="sidebar-label">Review</span>
+    <span class="sidebar-label">Manage</span>
     <ul class="sidebar-nav">
-      <li>
-        <a href="{% url 'quiz-draft-list' %}">
-          <span class="nav-icon"><i class="bi bi-patch-check"></i></span>Quiz Drafts
-        </a>
-      </li>
-      <li>
-        <a href="{% url 'admin-sessions' %}">
-          <span class="nav-icon"><i class="bi bi-calendar-check"></i></span>Doubt Sessions
-        </a>
-      </li>
       <li>
         <a href="{% url 'create-user' %}">
           <span class="nav-icon"><i class="bi bi-person-plus"></i></span>Create User
@@ -699,9 +711,8 @@
   </footer>
 </div>
 
-<!-- ── Chatbot widget (only shown to admin/instructor, or enrolled students) ── -->
-{% if user.is_authenticated and chatbot_course_id %}
-{% if user.role != 'student' or chatbot_enrolled %}
+{% if user.is_authenticated and user.role == 'student' and chatbot_course_id and chatbot_enrolled %}
+<!-- ── Learning Assistant widget ── -->
 <div id="chatbot-widget">
   <div id="chat-panel">
     <!-- Header -->
@@ -715,10 +726,31 @@
       <button class="chat-close-btn" onclick="chatClose()"><i class="bi bi-x-lg"></i></button>
     </div>
 
+    {% if chatbot_courses|length > 1 %}
+    <div class="chat-course-picker">
+      <label for="chat-course-select">Course</label>
+      <select id="chat-course-select" onchange="chatSelectCourse(this.value)">
+        {% for chatbot_course in chatbot_courses %}
+        <option value="{{ chatbot_course.id }}"{% if chatbot_course.id == chatbot_course_id %} selected{% endif %}>
+          {{ chatbot_course.title }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
     <!-- Messages -->
     <div class="chat-messages" id="chat-messages">
       <div class="chat-bubble bot">
-        Hi! I'm your Learning Assistant. I can answer questions about the study material for your current course.
+        Hi! I'm your Learning Assistant. Ask me anything about
+        <strong id="chat-course-name">
+          {% if chatbot_courses %}
+          {{ chatbot_courses.0.title }}
+          {% else %}
+          your course
+          {% endif %}
+        </strong>
+        and I'll help you with the study material.
         {% if not chatbot_course_id %}
         <br><span class="text-muted" style="font-size:.8rem;">Open a course or video page to start asking questions.</span>
         {% endif %}
@@ -744,6 +776,8 @@
   </button>
 </div>
 {% endif %}
+{% if chatbot_courses %}
+{{ chatbot_courses|json_script:"chatbot-courses-data" }}
 {% endif %}
 
 <!-- Bootstrap JS -->
@@ -779,13 +813,17 @@ if (overlay) {
   });
 })();
 
+{% if user.is_authenticated and user.role == 'student' and chatbot_enrolled %}
 /* ── Chatbot ────────────────────────────────────────────────────────────────── */
 const CHATBOT_COURSE_ID = {{ chatbot_course_id|default:0 }};
 const CHATBOT_CSRF      = '{{ csrf_token }}';
+const chatCoursesNode   = document.getElementById('chatbot-courses-data');
+const CHATBOT_COURSES   = chatCoursesNode ? JSON.parse(chatCoursesNode.textContent) : [];
 
 let chatOpen   = false;
 let chatVoice  = false;
 let chatLang   = 'en';
+let chatCourseId = CHATBOT_COURSE_ID;
 
 function chatToggle() {
   chatOpen = !chatOpen;
@@ -807,6 +845,19 @@ function chatSetLang(lang) {
 function chatToggleVoice() {
   chatVoice = !chatVoice;
   document.getElementById('voice-btn').classList.toggle('active', chatVoice);
+}
+function chatSelectCourse(courseId) {
+  const parsed = parseInt(courseId, 10);
+  chatCourseId = Number.isNaN(parsed) ? 0 : parsed;
+
+  const selectedCourse = CHATBOT_COURSES.find(course => course.id === chatCourseId);
+  const courseNameNode = document.getElementById('chat-course-name');
+  if (courseNameNode && selectedCourse) {
+    courseNameNode.textContent = selectedCourse.title;
+  }
+  if (selectedCourse) {
+    chatAppend(`Switched to <strong>${selectedCourse.title}</strong>.`, 'bot');
+  }
 }
 function chatKeydown(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); }
@@ -841,9 +892,9 @@ async function chatSend() {
   const query = input.value.trim();
   if (!query) return;
 
-  const courseId = CHATBOT_COURSE_ID;
+  const courseId = chatCourseId;
   if (!courseId) {
-    chatAppend('Please navigate to a course page first to ask course-specific questions.', 'error');
+    chatAppend('Please select one of your enrolled courses first.', 'error');
     return;
   }
 
@@ -882,19 +933,6 @@ async function chatSend() {
       /* Build bot bubble */
       let html = `<div>${data.answer || '(no answer)'}</div>`;
 
-      /* Source chunks accordion */
-      if (data.source_chunks && data.source_chunks.length) {
-        html += `<details class="chat-sources mt-2">
-          <summary><i class="bi bi-card-text me-1"></i>Sources (${data.source_chunks.length})</summary>
-          <div style="margin-top:.35rem;">`;
-        data.source_chunks.forEach(c => {
-          html += `<span class="source-chip" title="${c.text}">
-            ${c.start.toFixed(0)}s–${c.end.toFixed(0)}s &middot; score ${c.score}
-          </span>`;
-        });
-        html += '</div></details>';
-      }
-
       /* Audio player */
       if (data.audio) {
         html += `<audio class="chat-audio" controls>
@@ -911,6 +949,7 @@ async function chatSend() {
 
   document.getElementById('chat-send').disabled = false;
 }
+{% endif %}
 
 /* ── Toast notifications (Celery) ───────────────────────────────────────────── */
 function lmsNotify(title, body, type) {

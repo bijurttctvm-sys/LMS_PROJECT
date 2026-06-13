@@ -6,6 +6,7 @@ import re
 from collections import Counter
 
 from celery import shared_task
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,10 @@ def process_study_material(self, video_id):
         logger.error('[%s] process_study_material: video not found', video_id)
         return
 
-    Video.objects.filter(id=video_id).update(status=Video.Status.PROCESSING)
+    Video.objects.filter(id=video_id).update(
+        status=Video.Status.PROCESSING,
+        processing_started_at=timezone.now(),
+    )
 
     try:
         english_text = (video.english_transcript or '').strip()
@@ -67,11 +71,17 @@ def process_study_material(self, video_id):
         )
         _mark_topic_segments(all_chunks)
 
+        # Quiz drafts depend on the saved study material, not on PDFs/vectors.
+        # Queue them as early as possible so review can start immediately.
+        queue_quiz_generation(video_id)
         generate_pdfs.delay(video_id)
 
     except Exception as exc:
         logger.exception('[%s] process_study_material failed: %s', video_id, exc)
-        Video.objects.filter(id=video_id).update(status=Video.Status.FAILED)
+        Video.objects.filter(id=video_id).update(
+            status=Video.Status.FAILED,
+            processing_started_at=None,
+        )
         raise self.retry(exc=exc, countdown=60)
 
 
@@ -116,15 +126,18 @@ def generate_pdfs(self, video_id):
         Video.objects.filter(id=video_id).update(
             english_pdf_key=en_key,
             malayalam_pdf_key=ml_key,
-            status=Video.Status.READY,
+            status=Video.Status.PROCESSING,
         )
-        logger.info('[%s] PDFs uploaded and status set to READY', video_id)
+        logger.info('[%s] PDFs uploaded; waiting for embeddings before marking READY', video_id)
 
         generate_embeddings.delay(video_id)
 
     except Exception as exc:
         logger.exception('[%s] generate_pdfs failed: %s', video_id, exc)
-        Video.objects.filter(id=video_id).update(status=Video.Status.FAILED)
+        Video.objects.filter(id=video_id).update(
+            status=Video.Status.FAILED,
+            processing_started_at=None,
+        )
         raise self.retry(exc=exc, countdown=60)
 
 
@@ -169,29 +182,40 @@ def generate_embeddings(self, video_id):
         for chunk, vid_id in zip(pending, vector_ids):
             TranscriptChunk.objects.filter(id=chunk.id).update(embedding_id=vid_id)
 
+        Video.objects.filter(id=video_id).update(
+            status=Video.Status.READY,
+            processing_started_at=None,
+        )
         logger.info('[%s] Upserted %d vectors to Pinecone', video_id, len(vector_ids))
-
-        # Auto-generate quiz draft if none exist yet for this video
-        _auto_trigger_quiz(video_id)
 
     except Exception as exc:
         logger.exception('[%s] generate_embeddings failed: %s', video_id, exc)
         raise self.retry(exc=exc, countdown=120)
 
 
-def _auto_trigger_quiz(video_id):
-    """Queue quiz generation only if no quiz or pending drafts exist for this video."""
+def queue_quiz_generation(video_id, force=False):
+    """Queue quiz generation unless the video already has a quiz or reviewable drafts."""
     try:
         from quizzes.models import Quiz, QuizDraft
-        already_has_quiz   = Quiz.objects.filter(video_id=video_id).exists()
-        already_has_drafts = QuizDraft.objects.filter(video_id=video_id).exists()
-        if already_has_quiz or already_has_drafts:
-            logger.info('[%s] Skipping auto quiz — quiz/drafts already exist', video_id)
-            return
+        already_has_quiz = Quiz.objects.filter(video_id=video_id).exists()
+        already_has_drafts = QuizDraft.objects.filter(
+            video_id=video_id,
+            status__in=[QuizDraft.Status.PENDING, QuizDraft.Status.APPROVED],
+        ).exists()
+        if not force and (already_has_quiz or already_has_drafts):
+            logger.info('[%s] Skipping quiz queue because quiz/drafts already exist', video_id)
+            return False
         generate_quiz.delay(video_id)
-        logger.info('[%s] Auto-queued quiz generation', video_id)
+        logger.info('[%s] Queued quiz generation', video_id)
+        return True
     except Exception as exc:
-        logger.warning('[%s] Auto quiz trigger failed: %s', video_id, exc)
+        logger.warning('[%s] Quiz queue failed: %s', video_id, exc)
+        return False
+
+
+def _auto_trigger_quiz(video_id):
+    """Backward-compatible wrapper for older call sites."""
+    return queue_quiz_generation(video_id)
 
 
 def _get_embeddings(video_id, raw_texts):
@@ -233,7 +257,7 @@ def generate_quiz(self, video_id):
     from django.contrib.auth import get_user_model
     from django.core.mail import send_mail
     from videos.models import Video
-    from quizzes.models import QuizDraft
+    from quizzes.models import Quiz, QuizDraft
 
     try:
         video = Video.objects.get(id=video_id)
@@ -244,6 +268,14 @@ def generate_quiz(self, video_id):
     transcript = (video.english_transcript or '').strip()
     if not transcript:
         logger.warning('[%s] generate_quiz: no English transcript available', video_id)
+        return
+
+    existing_drafts = QuizDraft.objects.filter(
+        video=video,
+        status__in=[QuizDraft.Status.PENDING, QuizDraft.Status.APPROVED],
+    ).exists()
+    if Quiz.objects.filter(video=video).exists() or existing_drafts:
+        logger.info('[%s] generate_quiz: skipping because quiz/drafts already exist', video_id)
         return
 
     excerpt = transcript[:4000]
@@ -310,7 +342,11 @@ def generate_quiz(self, video_id):
             .exclude(email='')
             .values_list('email', flat=True)
         )
-        if admin_emails:
+        recipients = set(admin_emails)
+        instructor = getattr(video.course, 'instructor', None)
+        if instructor and instructor.email:
+            recipients.add(instructor.email)
+        if recipients:
             subject = f'Quiz draft ready for review: {video.title}'
             body = (
                 f"Hello,\n\n"
@@ -318,12 +354,18 @@ def generate_quiz(self, video_id):
                 f"for the video:\n\n"
                 f"  Title  : {video.title}\n"
                 f"  Course : {video.course.title}\n\n"
-                f"Please log in to the LMS admin to review and approve the questions "
+                f"Please log in to the LMS quiz draft review screen to review and approve the questions "
                 f"before publishing.\n\n"
                 f"— LMS Automated System"
             )
-            send_mail(subject, body, _settings.DEFAULT_FROM_EMAIL, admin_emails, fail_silently=True)
-            logger.info('[%s] Notified %d admin(s) of quiz draft', video_id, len(admin_emails))
+            send_mail(
+                subject,
+                body,
+                _settings.DEFAULT_FROM_EMAIL,
+                sorted(recipients),
+                fail_silently=True,
+            )
+            logger.info('[%s] Notified %d reviewer(s) of quiz draft', video_id, len(recipients))
 
     except Exception as exc:
         logger.exception('[%s] generate_quiz failed: %s', video_id, exc)
@@ -419,7 +461,7 @@ def _build_pdf(title, text, language='en'):
 
     story = [Paragraph(_xml_safe(title), title_style), Spacer(1, 0.4 * cm)]
 
-    body = text or 'No transcript available.'
+    body = text or 'No study material available.'
     for para in re.split(r'\n{2,}', body):
         para = para.strip()
         if para:

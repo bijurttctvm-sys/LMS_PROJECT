@@ -31,6 +31,9 @@
             {% for err in field.errors %}
               <div class="invalid-feedback">{{ err }}</div>
             {% endfor %}
+            {% if field.help_text %}
+              <div class="form-text">{{ field.help_text }}</div>
+            {% endif %}
           </div>
         {% endfor %}
         <button type="submit" class="btn btn-primary">Save Profile</button>

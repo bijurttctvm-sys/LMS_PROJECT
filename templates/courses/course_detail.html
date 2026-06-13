@@ -24,6 +24,9 @@
     <a href="{% url "delete-course-content" course.id %}" class="btn btn-outline-danger btn-sm">
       <i class="bi bi-trash3 me-1"></i>Delete Content
     </a>
+    <a href="{% url "delete-course" course.id %}" class="btn btn-danger btn-sm">
+      <i class="bi bi-trash-fill me-1"></i>Delete Course
+    </a>
     {% elif user.role == "instructor" %}
     {% if not course_locked %}
     <a href="{% url "upload-video" %}?course={{ course.id }}" class="btn btn-primary btn-sm">

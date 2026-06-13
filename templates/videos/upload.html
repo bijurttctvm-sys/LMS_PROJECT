@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Upload Video — LMS{% endblock %}
+{% block title %}Content Upload — LMS{% endblock %}
 {% block extra_head %}
 <style>
   #drop-zone {
@@ -19,8 +19,8 @@
 <div class="row justify-content-center">
   <div class="col-md-7">
     <div class="card p-4">
-      <h3 class="mb-3">Add Course Content</h3>
-      <p class="text-muted small mb-3">Upload a video file (optional). You will add the transcript on the next step.</p>
+      <h3 class="mb-3">Content Upload</h3>
+      <p class="text-muted small mb-3">Upload a video file if you have one, or continue without a video and add the study material in the next step.</p>
       <form method="post" enctype="multipart/form-data" id="upload-form">
         {% csrf_token %}
 
@@ -49,7 +49,7 @@
           <label class="form-label">Video File <span class="text-muted fw-normal">(optional)</span></label>
           <div id="drop-zone" onclick="document.getElementById('id_video_file').click()">
             <p class="mb-1">Drag &amp; drop or <u>click to browse</u></p>
-            <small class="text-muted">MP4, MKV, MOV, AVI, WEBM — max 2 GB</small>
+            <small class="text-muted">MP4, MKV, MOV, AVI, WEBM — max 2 GB. Leave this blank to upload only study material.</small>
             <p id="file-name" class="mt-2 fw-bold text-primary"></p>
           </div>
           <input type="file" name="video_file" id="id_video_file" accept="video/*" class="d-none">
@@ -63,7 +63,7 @@
           </div>
         </div>
 
-        <button type="submit" class="btn btn-primary" id="submit-btn">Upload</button>
+        <button type="submit" class="btn btn-primary" id="submit-btn">Save &amp; Continue</button>
         <a href="{% url 'course-list' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
       </form>
     </div>
@@ -146,7 +146,7 @@ form.addEventListener('submit', function(e) {
       successBox.className = 'alert alert-success d-flex align-items-center gap-2 mt-3';
       successBox.innerHTML  =
         '<i class="bi bi-check-circle-fill flex-shrink-0" style="font-size:1.2rem;"></i>' +
-        '<div><strong>Video saved!</strong> Redirecting to transcript upload…</div>';
+        '<div><strong>Content saved!</strong> Redirecting to study material upload…</div>';
       form.prepend(successBox);
 
       submitBtn.textContent = 'Redirecting…';

@@ -1,4 +1,5 @@
 import logging
+import re
 
 from django.conf import settings
 
@@ -8,7 +9,10 @@ _GROQ_MODEL = "llama-3.1-8b-instant"
 
 _SYSTEM_EN = (
     "You are a helpful teaching assistant for an online lecture course. "
-    "Answer questions clearly and concisely based only on the provided lecture content. "
+    "Answer questions clearly and concisely using only the provided course context. "
+    "Do not begin answers with phrases like 'Based on the lecture content', "
+    "'Based on the document shared', or similar lead-ins. "
+    "Answer directly. "
     "If the answer is not in the content, say so honestly."
 )
 
@@ -16,6 +20,22 @@ _SYSTEM_ML = (
     "നിങ്ങള്‍ ഒരു ഓണ്‍ലൈന്‍ ലക്ചര്‍ കോഴ്‌സിനുള്ള സഹായകരമായ അധ്യാപന സഹായകനാണ്. "
     "നല്‍കിയ ലക്ചര്‍ ഉള്ളടക്കത്തെ അടിസ്ഥാനമാക്കി മാത്രം ചോദ്യങ്ങള്‍ക്ക് ഉത്തരം നല്‍കുക."
 )
+
+_LEADING_SOURCE_CLAUSES_RE = re.compile(
+    r"^\s*(?:"
+    r"based on (?:the )?(?:lecture|course) content"
+    r"|based on (?:the )?(?:document|documents) shared"
+    r"|based on (?:the )?shared document"
+    r"|according to (?:the )?(?:lecture|course) content"
+    r"|according to (?:the )?(?:document|documents) shared"
+    r")\s*[:,.-]?\s*",
+    re.IGNORECASE,
+)
+
+
+def _clean_answer_style(answer: str) -> str:
+    cleaned = _LEADING_SOURCE_CLAUSES_RE.sub("", answer or "", count=1).strip()
+    return cleaned or (answer or "").strip()
 
 
 def get_answer(question: str, context_chunks: list, language: str = "en") -> str:
@@ -48,7 +68,7 @@ def get_answer(question: str, context_chunks: list, language: str = "en") -> str
         system = _SYSTEM_ML
     else:
         user_message = (
-            f"Answer based on this lecture content:\n\n"
+            f"Use the following course context to answer the question directly:\n\n"
             f"{context}\n\n"
             f"Question: {question}"
         )
@@ -64,4 +84,4 @@ def get_answer(question: str, context_chunks: list, language: str = "en") -> str
         temperature=0.3,
         max_tokens=1024,
     )
-    return response.choices[0].message.content.strip()
+    return _clean_answer_style(response.choices[0].message.content.strip())

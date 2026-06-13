@@ -28,8 +28,9 @@ class DoubtSession(models.Model):
         REQUESTED = 'requested', 'Requested'
         SELECTED  = 'selected',  'Slots Proposed'
         CONFIRMED = 'confirmed', 'Confirmed'
+        POSTPONED = 'postponed', 'Postponed by Instructor'
         ATTENDED  = 'attended',  'Attended'
-        NO_SHOW   = 'no_show',   'No Show'
+        NO_SHOW   = 'no_show',   'Not Attended'
         CANCELLED = 'cancelled', 'Cancelled'
         COMPLETED = 'completed', 'Completed'
 
@@ -60,6 +61,7 @@ class DoubtSession(models.Model):
     )
     request_message  = models.TextField(blank=True)
     meet_url         = models.URLField(blank=True, null=True)
+    instructor_postponed_once = models.BooleanField(default=False)
     status           = models.CharField(
         max_length=20, choices=Status.choices, default=Status.CONFIRMED, db_index=True
     )
@@ -83,7 +85,10 @@ class DoubtSession(models.Model):
         active = (
             cls.objects
             .filter(student=student, status__in=[
-                cls.Status.REQUESTED, cls.Status.SELECTED, cls.Status.CONFIRMED,
+                cls.Status.REQUESTED,
+                cls.Status.SELECTED,
+                cls.Status.CONFIRMED,
+                cls.Status.POSTPONED,
             ])
             .select_related('slot', 'slot__instructor', 'instructor', 'course')
             .first()

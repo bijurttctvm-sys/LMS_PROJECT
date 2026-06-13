@@ -38,6 +38,11 @@
             {% if session.course %} &mdash; {{ session.course.title }}{% endif %}
           </h6>
           <p class="text-muted small mb-2">{{ session.student.email|default:"no email" }}</p>
+          {% if session.status == "postponed" %}
+          <p class="text-warning small mb-2">
+            <i class="bi bi-arrow-repeat me-1"></i>This session was postponed once. Propose 3 fresh slots now.
+          </p>
+          {% endif %}
           {% if session.request_message %}
           <p class="mb-0 small">
             <i class="bi bi-chat-quote me-1"></i>{{ session.request_message }}
@@ -131,8 +136,15 @@
           <form method="post" action="{% url "mark-outcome" session.id %}">
             {% csrf_token %}
             <input type="hidden" name="outcome" value="no_show">
-            <button type="submit" class="btn btn-warning">No Show</button>
+            <button type="submit" class="btn btn-warning">Not Attended</button>
           </form>
+          {% if not session.instructor_postponed_once %}
+          <form method="post" action="{% url "mark-outcome" session.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="outcome" value="postponed">
+            <button type="submit" class="btn btn-outline-primary">Postponed by Instructor</button>
+          </form>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -160,6 +172,7 @@
         <span class="badge
           {% if session.status == "attended" or session.status == "completed" %}bg-success
           {% elif session.status == "no_show" %}bg-danger
+          {% elif session.status == "postponed" %}bg-warning text-dark
           {% elif session.status == "cancelled" %}bg-secondary
           {% else %}bg-warning text-dark{% endif %}">
           {{ session.get_status_display }}

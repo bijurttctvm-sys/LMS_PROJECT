@@ -35,6 +35,31 @@ def _admin_required(view_func):
     return wrapper
 
 
+def _delete_course_assets(course, delete_videos=True):
+    """Remove external assets for a course and optionally delete its videos."""
+    from videos.models import Video
+
+    videos = Video.objects.filter(course=course)
+    for video in videos:
+        try:
+            from utils.pinecone_client import delete_video_chunks
+            delete_video_chunks(video.id)
+        except Exception as exc:
+            logger.warning('Pinecone delete failed for video %s: %s', video.id, exc)
+        try:
+            from utils.r2_storage import delete_file
+            for key in (video.video_key, video.english_pdf_key, video.malayalam_pdf_key):
+                if key:
+                    delete_file(key)
+        except Exception as exc:
+            logger.warning('R2 delete failed for video %s: %s', video.id, exc)
+
+    deleted_count = videos.count()
+    if delete_videos:
+        videos.delete()  # cascades to TranscriptChunk, QuizDraft, Quiz
+    return deleted_count
+
+
 @login_required
 def course_list(request):
     if request.user.role == User.Role.STUDENT:
@@ -78,7 +103,8 @@ def course_detail(request, course_id):
         'videos':          videos,
         'enrolled':        enrolled,
         'course_locked':   course_locked,
-        'chatbot_course_id': course.id,
+        'chatbot_course_id': course.id if enrolled else 0,
+        'chatbot_courses':   [{'id': course.id, 'title': course.title}] if enrolled else [],
         'chatbot_enrolled':  enrolled,
     })
 
@@ -152,26 +178,9 @@ def assign_instructor(request, course_id):
 def delete_course_content(request, course_id):
     """Delete all videos, study material, Pinecone vectors, and quizzes for a course."""
     course = get_object_or_404(Course, id=course_id)
-    from videos.models import Video
 
     if request.method == 'POST':
-        videos = Video.objects.filter(course=course)
-        for video in videos:
-            try:
-                from utils.pinecone_client import delete_video_chunks
-                delete_video_chunks(video.id)
-            except Exception as exc:
-                logger.warning('Pinecone delete failed for video %s: %s', video.id, exc)
-            try:
-                from utils.r2_storage import delete_file
-                for key in (video.video_key, video.english_pdf_key, video.malayalam_pdf_key):
-                    if key:
-                        delete_file(key)
-            except Exception as exc:
-                logger.warning('R2 delete failed for video %s: %s', video.id, exc)
-
-        deleted_count = videos.count()
-        videos.delete()  # cascades to TranscriptChunk, QuizDraft, Quiz
+        deleted_count = _delete_course_assets(course)
 
         messages.success(
             request,
@@ -180,10 +189,37 @@ def delete_course_content(request, course_id):
         )
         return redirect('course-detail', course_id=course.id)
 
+    from videos.models import Video
     video_count = Video.objects.filter(course=course).count()
     return render(request, 'courses/delete_content.html', {
         'course':      course,
         'video_count': video_count,
+    })
+
+
+@_admin_required
+def delete_course(request, course_id):
+    """Delete a course together with all its content and enrollments."""
+    course = get_object_or_404(Course, id=course_id)
+
+    if request.method == 'POST':
+        course_title = course.title
+        deleted_count = _delete_course_assets(course)
+        course.delete()
+        messages.success(
+            request,
+            f'Course "{course_title}" deleted permanently '
+            f'({deleted_count} video(s), all content, and all enrollments removed).'
+        )
+        return redirect('course-list')
+
+    from videos.models import Video
+    video_count = Video.objects.filter(course=course).count()
+    enrollment_count = course.enrollments.filter(is_active=True).count()
+    return render(request, 'courses/delete_course.html', {
+        'course':            course,
+        'video_count':       video_count,
+        'enrollment_count':  enrollment_count,
     })
 
 

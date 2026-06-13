@@ -70,8 +70,8 @@
           <i class="bi bi-patch-check"></i>
         </div>
         <div>
-          <div class="stat-num" style="color:#c0392b;">{{ pending_drafts_count }}</div>
-          <div class="stat-label">Pending Drafts</div>
+          <div class="stat-num" style="color:#c0392b;">{{ reviewable_drafts_count }}</div>
+          <div class="stat-label">Quiz Drafts</div>
         </div>
       </div>
     </div>
@@ -247,7 +247,7 @@
   <div class="col-lg-4">
 
     <!-- Quiz Draft Queue -->
-    {% if pending_drafts_count %}
+    {% if reviewable_drafts_count %}
     <div class="card mb-4" style="border-left:4px solid #fd7e14;">
       <div class="card-body">
         <div class="d-flex align-items-center gap-3">
@@ -258,13 +258,15 @@
           </div>
           <div>
             <div class="fw-bold" style="font-size:.95rem;">
-              {{ pending_drafts_count }} Draft{{ pending_drafts_count|pluralize }} Pending
+              {{ reviewable_drafts_count }} Draft{{ reviewable_drafts_count|pluralize }} Available
             </div>
-            <div class="text-muted" style="font-size:.8rem;">Quiz questions awaiting review</div>
+            <div class="text-muted" style="font-size:.8rem;">
+              {{ pending_drafts_count }} pending, {{ approved_drafts_count }} approved for publish
+            </div>
           </div>
         </div>
         <a href="{% url 'quiz-draft-list' %}" class="btn btn-warning btn-sm mt-3 w-100">
-          <i class="bi bi-patch-check me-1"></i>Review Drafts
+          <i class="bi bi-patch-check me-1"></i>Open Quiz Drafts
         </a>
       </div>
     </div>

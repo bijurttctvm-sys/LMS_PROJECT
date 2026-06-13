@@ -54,6 +54,7 @@
             {% elif s.status == "attended" or s.status == "completed" %}bg-success
             {% elif s.status == "cancelled" %}bg-secondary
             {% elif s.status == "no_show" %}bg-danger
+            {% elif s.status == "postponed" %}bg-warning text-dark
             {% elif s.status == "requested" %}bg-warning text-dark
             {% elif s.status == "selected" %}bg-info text-dark
             {% else %}bg-secondary{% endif %}">
@@ -67,10 +68,12 @@
           <span class="text-muted">Awaiting slots</span>
           {% elif s.status == "selected" %}
           <span class="text-muted">Awaiting student choice</span>
+          {% elif s.status == "postponed" %}
+          <span class="text-muted">Instructor must propose new slots</span>
           {% else %}—{% endif %}
         </td>
         <td class="text-end">
-          {% if s.status not in "cancelled,completed,attended,no_show" %}
+          {% if s.status != "cancelled" and s.status != "completed" and s.status != "attended" and s.status != "no_show" %}
           <div class="d-flex justify-content-end gap-1">
             <form method="post" action="{% url "admin-close-session" s.id %}" class="d-inline">
               {% csrf_token %}
