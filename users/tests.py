@@ -257,3 +257,29 @@ class AdminUserManagementTests(TestCase):
         self.assertRedirects(response, reverse('manage-users', args=[User.Role.INSTRUCTOR]))
         self.trainer.refresh_from_db()
         self.assertFalse(self.trainer.is_active)
+
+
+class SuperuserRoleTests(TestCase):
+    def test_create_superuser_sets_admin_role(self):
+        superuser = User.objects.create_superuser(
+            username='siteadmin',
+            email='siteadmin@example.com',
+            password='StrongPass123!',
+        )
+
+        self.assertTrue(superuser.is_superuser)
+        self.assertEqual(superuser.role, User.Role.ADMIN)
+
+    def test_saving_superuser_normalises_role_to_admin(self):
+        user = User.objects.create_user(
+            username='promoted-user',
+            password='StrongPass123!',
+            role=User.Role.STUDENT,
+        )
+
+        user.is_staff = True
+        user.is_superuser = True
+        user.save()
+        user.refresh_from_db()
+
+        self.assertEqual(user.role, User.Role.ADMIN)

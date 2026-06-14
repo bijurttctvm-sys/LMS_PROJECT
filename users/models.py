@@ -1,5 +1,13 @@
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
+
+
+class LMSUserManager(UserManager):
+    """Keep Django superusers aligned with the LMS admin role."""
+
+    def create_superuser(self, username, email=None, password=None, **extra_fields):
+        extra_fields.setdefault('role', User.Role.ADMIN)
+        return super().create_superuser(username, email=email, password=password, **extra_fields)
 
 
 class User(AbstractUser):
@@ -39,6 +47,12 @@ class User(AbstractUser):
         choices=Language.choices,
         default=Language.ENGLISH,
     )
+    objects = LMSUserManager()
+
+    def save(self, *args, **kwargs):
+        if self.is_superuser:
+            self.role = self.Role.ADMIN
+        super().save(*args, **kwargs)
 
     def is_admin(self):
         return self.role == self.Role.ADMIN
