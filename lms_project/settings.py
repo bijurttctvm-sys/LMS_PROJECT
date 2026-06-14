@@ -346,6 +346,12 @@ CHATBOT_TRANSLATION_CACHE_TTL = int(
     os.environ.get('CHATBOT_TRANSLATION_CACHE_TTL', '86400')
 )
 CHATBOT_TTS_CACHE_TTL = int(os.environ.get('CHATBOT_TTS_CACHE_TTL', '86400'))
+VIDEO_PROCESSING_TIMEOUT_SECONDS = int(
+    os.environ.get(
+        'VIDEO_PROCESSING_TIMEOUT_SECONDS',
+        '900' if IS_PRODUCTION else '180',
+    )
+)
 
 
 # Email

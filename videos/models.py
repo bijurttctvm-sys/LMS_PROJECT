@@ -1,11 +1,14 @@
 from datetime import timedelta
 
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
 
 class Video(models.Model):
-    PROCESSING_TIMEOUT = timedelta(minutes=3)
+    PROCESSING_TIMEOUT = timedelta(
+        seconds=max(60, int(getattr(settings, 'VIDEO_PROCESSING_TIMEOUT_SECONDS', 180)))
+    )
 
     class Status(models.TextChoices):
         UPLOADED = 'UPLOADED', 'Awaiting Study Material'

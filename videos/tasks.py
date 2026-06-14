@@ -34,6 +34,12 @@ _SMART_QUOTES_TRANS = str.maketrans({
 _QUIZ_DUPLICATE_SIMILARITY_THRESHOLD = 0.9
 
 
+def _missing_required_settings(*names):
+    from django.conf import settings as _settings
+
+    return [name for name in names if not getattr(_settings, name, '')]
+
+
 # ---------------------------------------------------------------------------
 # process_study_material — chunks the uploaded content then kicks off
 #                          PDF generation and embedding pipeline
@@ -206,6 +212,21 @@ def generate_embeddings(self, video_id):
         return
 
     try:
+        missing_settings = _missing_required_settings(
+            'PINECONE_API_KEY',
+            'PINECONE_INDEX_NAME',
+        )
+        if missing_settings:
+            Video.objects.filter(id=video_id).update(
+                status=Video.Status.FAILED,
+                processing_started_at=None,
+            )
+            logger.error(
+                '[%s] generate_embeddings aborted because required settings are missing: %s',
+                video_id,
+                ', '.join(missing_settings),
+            )
+            return
         raw_texts = [c.text for c in pending]
 
         embeddings = _get_embeddings(video_id, raw_texts)
@@ -239,6 +260,14 @@ def queue_quiz_generation(video_id, force=False):
         None when queueing failed unexpectedly.
     """
     try:
+        missing_settings = _missing_required_settings('GROQ_API_KEY')
+        if missing_settings:
+            logger.warning(
+                '[%s] Quiz queue skipped because required settings are missing: %s',
+                video_id,
+                ', '.join(missing_settings),
+            )
+            return None
         from quizzes.models import Quiz, QuizDraft
         already_has_quiz = Quiz.objects.filter(video_id=video_id).exists()
         already_has_drafts = QuizDraft.objects.filter(
@@ -702,6 +731,14 @@ def generate_quiz(self, video_id):
     excerpt = transcript[:4000]
 
     try:
+        missing_settings = _missing_required_settings('GROQ_API_KEY')
+        if missing_settings:
+            logger.error(
+                '[%s] generate_quiz aborted because required settings are missing: %s',
+                video_id,
+                ', '.join(missing_settings),
+            )
+            return
         from groq import Groq
         client = Groq(api_key=_settings.GROQ_API_KEY)
         raw = _request_quiz_response(client, excerpt, repair=False)

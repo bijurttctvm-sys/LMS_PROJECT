@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -87,6 +88,16 @@ class QuizGenerationFlowTests(TestCase):
 
         self.assertIsNone(queued)
 
+    @override_settings(GROQ_API_KEY='')
+    def test_queue_quiz_generation_returns_none_when_groq_is_not_configured(self):
+        from videos.tasks import queue_quiz_generation
+
+        with patch('videos.tasks.generate_quiz.delay') as mock_delay:
+            queued = queue_quiz_generation(self.video.id)
+
+        self.assertIsNone(queued)
+        mock_delay.assert_not_called()
+
     def test_generate_quiz_view_shows_service_warning_when_queue_fails(self):
         self.client.force_login(self.admin)
 
@@ -144,6 +155,26 @@ class QuizGenerationFlowTests(TestCase):
             QUIZ_TARGET_QUESTION_COUNT,
         )
         self.assertEqual(mock_client.chat.completions.create.call_count, 2)
+
+    @override_settings(PINECONE_API_KEY='', PINECONE_INDEX_NAME='lms-test-index')
+    def test_generate_embeddings_marks_video_failed_when_pinecone_is_not_configured(self):
+        from videos.models import TranscriptChunk
+        from videos.tasks import generate_embeddings
+
+        TranscriptChunk.objects.create(
+            video=self.video,
+            chunk_index=0,
+            text='Force equals mass times acceleration.',
+            start_time=0.0,
+            end_time=60.0,
+        )
+
+        result = generate_embeddings.apply(args=[self.video.id])
+
+        self.assertTrue(result.successful())
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.status, Video.Status.FAILED)
+        self.assertIsNone(self.video.processing_started_at)
 
     def test_generate_replacement_quiz_draft_retries_when_first_candidate_is_duplicate(self):
         existing = QuizDraft.objects.create(
