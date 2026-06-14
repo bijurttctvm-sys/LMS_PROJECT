@@ -29,8 +29,37 @@ def env_list(name, default=''):
     return [item.strip() for item in raw.split(',') if item.strip()]
 
 
+def append_unique(values, *extras):
+    seen = {value.lower() for value in values}
+    for extra in extras:
+        if not extra:
+            continue
+        normalised = extra.strip()
+        if not normalised:
+            continue
+        key = normalised.lower()
+        if key in seen:
+            continue
+        values.append(normalised)
+        seen.add(key)
+    return values
+
+
+def env_url_path(name, default):
+    value = (os.environ.get(name, default) or default).strip()
+    if not value.startswith('/'):
+        value = f'/{value.lstrip("/")}'
+    if not value.endswith('/'):
+        value = f'{value}/'
+    return value
+
+
 APP_ENV = os.environ.get('APP_ENV', 'development').strip().lower()
 IS_PRODUCTION = APP_ENV == 'production'
+RENDER_SERVICE_TYPE = os.environ.get('RENDER_SERVICE_TYPE', '').strip().lower()
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME', '').strip()
+RENDER_EXTERNAL_URL = os.environ.get('RENDER_EXTERNAL_URL', '').strip()
+IS_HTTP_SERVICE = RENDER_SERVICE_TYPE in {'', 'web', 'pserv'}
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DEBUG', default=not IS_PRODUCTION)
@@ -48,10 +77,14 @@ if not DEBUG and SECRET_KEY.startswith('django-insecure'):
     raise ImproperlyConfigured('Set a unique SECRET_KEY before running without DEBUG.')
 
 ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1' if DEBUG else '')
+append_unique(ALLOWED_HOSTS, RENDER_EXTERNAL_HOSTNAME)
+if not DEBUG and not ALLOWED_HOSTS and not IS_HTTP_SERVICE:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 if not DEBUG and not ALLOWED_HOSTS:
     raise ImproperlyConfigured('ALLOWED_HOSTS must be configured when DEBUG is disabled.')
 
 CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS')
+append_unique(CSRF_TRUSTED_ORIGINS, RENDER_EXTERNAL_URL)
 
 
 # Application definition
@@ -167,8 +200,8 @@ LANGUAGES = [
 
 
 # Static files (CSS, JavaScript, Images) — served via Whitenoise
-STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_URL = env_url_path('STATIC_URL', '/static/')
+STATIC_ROOT = Path(os.environ.get('STATIC_ROOT', str(BASE_DIR / 'staticfiles')))
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 
 STORAGES = {
@@ -181,8 +214,9 @@ STORAGES = {
 }
 
 # Media files (user uploads)
-MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = env_url_path('MEDIA_URL', '/media/')
+MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', str(BASE_DIR / 'media')))
+SERVE_MEDIA = env_bool('SERVE_MEDIA', default=DEBUG)
 
 
 # Default primary key field type

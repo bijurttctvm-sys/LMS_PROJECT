@@ -19,5 +19,5 @@ urlpatterns = [
     path('doubt/', include('doubt_sessions.urls')),
 ]
 
-if settings.DEBUG:
+if settings.DEBUG or getattr(settings, 'SERVE_MEDIA', False):
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

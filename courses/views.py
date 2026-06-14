@@ -30,7 +30,7 @@ def _delete_course_assets(course, delete_videos=True):
                 if key:
                     delete_file(key)
         except Exception as exc:
-            logger.warning('R2 delete failed for video %s: %s', video.id, exc)
+            logger.warning('Storage delete failed for video %s: %s', video.id, exc)
 
     deleted_count = videos.count()
     if delete_videos:

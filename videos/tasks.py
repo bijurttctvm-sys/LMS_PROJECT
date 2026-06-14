@@ -112,7 +112,7 @@ def process_study_material(self, video_id):
 @shared_task(bind=True, max_retries=3)
 def generate_pdfs(self, video_id):
     from videos.models import Video
-    from utils.r2_storage import upload_file
+    from utils.r2_storage import upload_file, uses_object_storage
 
     try:
         video = Video.objects.get(id=video_id)
@@ -121,6 +121,21 @@ def generate_pdfs(self, video_id):
         return
 
     try:
+        # Render disks are service-local. In worker mode, skip PDF export
+        # uploads unless shared object storage is configured.
+        if not uses_object_storage():
+            Video.objects.filter(id=video_id).update(
+                english_pdf_key='',
+                malayalam_pdf_key='',
+                status=Video.Status.PROCESSING,
+            )
+            logger.info(
+                '[%s] Shared object storage not configured; skipping PDF export upload',
+                video_id,
+            )
+            generate_embeddings.delay(video_id)
+            return
+
         en_pdf = _build_pdf(
             title=f'{video.title} — English Transcript',
             text=video.english_transcript,
