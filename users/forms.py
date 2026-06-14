@@ -1,6 +1,11 @@
-from django import forms
-from django.contrib.auth.forms import UserCreationForm
 import re
+
+from django import forms
+from django.conf import settings
+from django.contrib.auth import password_validation
+from django.contrib.auth.forms import PasswordChangeForm, UserCreationForm
+
+from utils.upload_validators import validate_uploaded_file
 
 from .models import User
 
@@ -49,6 +54,7 @@ class ProfileForm(forms.ModelForm):
         )
         widgets = {
             'preferred_language': forms.Select(choices=User.Language.choices),
+            'profile_picture': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
         }
 
     def clean_google_meet_link(self):
@@ -65,6 +71,16 @@ class ProfileForm(forms.ModelForm):
             return f"https://meet.google.com/{match.group('code').lower()}"
 
         raise forms.ValidationError('Enter a valid Google Meet link or meet code.')
+
+    def clean_profile_picture(self):
+        profile_picture = self.cleaned_data.get('profile_picture')
+        return validate_uploaded_file(
+            profile_picture,
+            allowed_extensions={'.jpg', '.jpeg', '.png', '.gif', '.webp'},
+            allowed_content_types={'image/*'},
+            max_bytes=settings.MAX_PROFILE_IMAGE_BYTES,
+            label='Profile picture',
+        )
 
 
 class CreateUserForm(forms.ModelForm):
@@ -88,13 +104,13 @@ class CreateUserForm(forms.ModelForm):
         model = User
         fields = ('username', 'first_name', 'last_name', 'email', 'role')
 
-    def clean(self):
-        cleaned = super().clean()
-        p1 = cleaned.get('password1', '')
-        p2 = cleaned.get('password2', '')
-        if p1 and p2 and p1 != p2:
-            self.add_error('password2', 'Passwords do not match.')
-        return cleaned
+    def clean_password2(self):
+        password1 = self.cleaned_data.get('password1', '')
+        password2 = self.cleaned_data.get('password2', '')
+        if password1 and password2 and password1 != password2:
+            raise forms.ValidationError('Passwords do not match.')
+        password_validation.validate_password(password2, self.instance)
+        return password2
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -102,3 +118,14 @@ class CreateUserForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
+
+class ChangePasswordForm(PasswordChangeForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['old_password'].widget.attrs.update({'autocomplete': 'current-password'})
+        self.fields['new_password1'].widget.attrs.update({'autocomplete': 'new-password'})
+        self.fields['new_password2'].widget.attrs.update({'autocomplete': 'new-password'})
+        self.fields['new_password1'].help_text = (
+            password_validation.password_validators_help_text_html()
+        )

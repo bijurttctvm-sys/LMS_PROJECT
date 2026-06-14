@@ -842,6 +842,7 @@
     <ul class="sidebar-nav">
       <li><a href="{% url 'admin:index' %}"><span class="nav-icon"><i class="bi bi-shield-lock"></i></span>Django Admin</a></li>
       <li><a href="{% url 'profile' %}"><span class="nav-icon"><i class="bi bi-person-circle"></i></span>Profile</a></li>
+      <li><a href="{% url 'change-password' %}"><span class="nav-icon"><i class="bi bi-shield-lock"></i></span>Change Password</a></li>
     </ul>
   </div>
 
@@ -866,6 +867,7 @@
     <ul class="sidebar-nav">
       <li><a href="{% url 'quiz-draft-list' %}"><span class="nav-icon"><i class="bi bi-patch-check"></i></span>Quiz Drafts</a></li>
       <li><a href="{% url 'profile' %}"><span class="nav-icon"><i class="bi bi-person-circle"></i></span>Profile</a></li>
+      <li><a href="{% url 'change-password' %}"><span class="nav-icon"><i class="bi bi-shield-lock"></i></span>Change Password</a></li>
     </ul>
   </div>
 
@@ -883,7 +885,7 @@
     <span class="sidebar-label">Learning</span>
     <ul class="sidebar-nav">
       <li><a href="{% url 'student-quiz-list' %}"><span class="nav-icon"><i class="bi bi-question-circle"></i></span>Quizzes</a></li>
-      <li><a href="{% url 'request-session' %}"><span class="nav-icon"><i class="bi bi-calendar-check"></i></span>Request Session</a></li>
+      <li><a href="{% url 'request-session' %}"><span class="nav-icon"><i class="bi bi-calendar-check"></i></span>Request Interactive Session</a></li>
       <li><a href="{% url 'my-sessions' %}"><span class="nav-icon"><i class="bi bi-camera-video"></i></span>Interactive Sessions</a></li>
     </ul>
   </div>
@@ -891,6 +893,7 @@
     <span class="sidebar-label">Account</span>
     <ul class="sidebar-nav">
       <li><a href="{% url 'profile' %}"><span class="nav-icon"><i class="bi bi-person-circle"></i></span>Profile</a></li>
+      <li><a href="{% url 'change-password' %}"><span class="nav-icon"><i class="bi bi-shield-lock"></i></span>Change Password</a></li>
     </ul>
   </div>
   {% endif %}
@@ -955,6 +958,7 @@
           </li>
           <li><hr class="dropdown-divider my-1"></li>
           <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+          <li><a class="dropdown-item" href="{% url 'change-password' %}"><i class="bi bi-shield-lock me-2"></i>Change Password</a></li>
           <li>
             <form method="post" action="{% url 'logout' %}">
               {% csrf_token %}

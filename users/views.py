@@ -1,19 +1,27 @@
 from django.contrib import messages
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
-from .forms import CreateUserForm, ProfileForm, RegisterForm
+from .decorators import role_home, role_required
+from .forms import ChangePasswordForm, CreateUserForm, ProfileForm, RegisterForm
 from .models import User
+from .security import clear_failed_logins, is_login_rate_limited, register_failed_login
 
 
 def _role_home(user):
-    if user.role == User.Role.ADMIN:
-        return 'admin-dashboard'
-    if user.role == User.Role.INSTRUCTOR:
-        return 'instructor-dashboard'
-    return 'student-dashboard'
+    return role_home(user)
+
+
+def _format_lockout_duration(seconds):
+    if seconds >= 60:
+        minutes = max(1, round(seconds / 60))
+        unit = 'minute' if minutes == 1 else 'minutes'
+        return f'{minutes} {unit}'
+    unit = 'second' if seconds == 1 else 'seconds'
+    return f'{seconds} {unit}'
 
 
 def home_view(request):
@@ -42,34 +50,40 @@ def login_view(request):
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '')
+        rate_limited, remaining_seconds = is_login_rate_limited(request, username)
+        if rate_limited:
+            messages.error(
+                request,
+                'Too many failed login attempts. '
+                f'Please try again in {_format_lockout_duration(remaining_seconds)}.'
+            )
+            return render(request, 'users/login.html')
+
         user = authenticate(request, username=username, password=password)
         if user is not None:
+            clear_failed_logins(request, username)
             login(request, user)
             return redirect(_role_home(user))
-        messages.error(request, 'Invalid username or password.')
+        register_failed_login(request, username)
+        rate_limited, remaining_seconds = is_login_rate_limited(request, username)
+        if rate_limited:
+            messages.error(
+                request,
+                'Too many failed login attempts. '
+                f'Please try again in {_format_lockout_duration(remaining_seconds)}.'
+            )
+        else:
+            messages.error(request, 'Invalid username or password.')
     return render(request, 'users/login.html')
 
 
+@require_POST
 def logout_view(request):
     logout(request)
     return redirect('login')
 
 
-def _require_role(role):
-    def decorator(view_func):
-        def wrapper(request, *args, **kwargs):
-            if not request.user.is_authenticated:
-                return redirect('login')
-            if request.user.role != role:
-                messages.error(request, 'You do not have permission to view that page.')
-                return redirect(_role_home(request.user))
-            return view_func(request, *args, **kwargs)
-        wrapper.__name__ = view_func.__name__
-        return wrapper
-    return decorator
-
-
-@_require_role(User.Role.STUDENT)
+@role_required(User.Role.STUDENT)
 def student_dashboard(request):
     from courses.models import Enrollment
     from doubt_sessions.models import DoubtSession
@@ -132,7 +146,7 @@ def student_dashboard(request):
     })
 
 
-@_require_role(User.Role.INSTRUCTOR)
+@role_required(User.Role.INSTRUCTOR)
 def instructor_dashboard(request):
     from doubt_sessions.models import DoubtSession
     from quizzes.models import QuizDraft
@@ -199,7 +213,7 @@ def instructor_dashboard(request):
     })
 
 
-@_require_role(User.Role.ADMIN)
+@role_required(User.Role.ADMIN)
 def admin_dashboard(request):
     from doubt_sessions.models import DoubtSession
     from videos.models import Video
@@ -244,9 +258,7 @@ def admin_dashboard(request):
     )
     for video in recent_videos:
         video.sync_runtime_status()
-    all_users = list(
-        User.objects.order_by('-date_joined').select_related()[:20]
-    )
+    all_users = list(User.objects.order_by('-date_joined')[:20])
 
     return render(request, 'users/admin_dashboard.html', {
         'stats':         stats,
@@ -255,7 +267,7 @@ def admin_dashboard(request):
     })
 
 
-@_require_role(User.Role.ADMIN)
+@role_required(User.Role.ADMIN)
 def create_user_view(request):
     if request.method == 'POST':
         form = CreateUserForm(request.POST)
@@ -282,3 +294,17 @@ def profile_view(request):
     else:
         form = ProfileForm(instance=request.user)
     return render(request, 'users/profile.html', {'form': form})
+
+
+@login_required
+def change_password_view(request):
+    if request.method == 'POST':
+        form = ChangePasswordForm(user=request.user, data=request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)
+            messages.success(request, 'Your password has been updated successfully.')
+            return redirect('profile')
+    else:
+        form = ChangePasswordForm(user=request.user)
+    return render(request, 'users/change_password.html', {'form': form})

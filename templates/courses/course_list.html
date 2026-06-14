@@ -8,6 +8,12 @@
   {% endif %}
 </div>
 
+{% if user.role == 'student' %}
+  <div class="alert alert-info">
+    Browse all available courses here. Course content unlocks automatically once an admin enrolls you.
+  </div>
+{% endif %}
+
 {% if courses %}
   <div class="row g-3">
     {% for course in courses %}
@@ -17,6 +23,13 @@
           <h5 class="card-title">{{ course.title }}</h5>
           <p class="card-text text-muted small">{{ course.description|truncatechars:100 }}</p>
           <span class="badge bg-secondary">{{ course.get_language_display }}</span>
+          {% if user.role == 'student' %}
+            {% if course.is_enrolled %}
+              <span class="badge bg-success">Enrolled</span>
+            {% else %}
+              <span class="badge bg-warning text-dark">Available to enroll</span>
+            {% endif %}
+          {% endif %}
           {% if course.instructor %}
             <span class="badge bg-light text-dark">{{ course.instructor.username }}</span>
           {% endif %}

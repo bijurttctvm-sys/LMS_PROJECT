@@ -20,7 +20,9 @@
   <div class="col-md-7">
     <div class="card p-4">
       <h3 class="mb-3">Content Upload</h3>
-      <p class="text-muted small mb-3">Upload a video file if you have one, or continue without a video and add the study material in the next step.</p>
+      <p class="text-muted small mb-3">
+        Upload a video file if you have one, or continue without a video and add the study material in the next step.
+      </p>
       <form method="post" enctype="multipart/form-data" id="upload-form">
         {% csrf_token %}
 
@@ -37,8 +39,12 @@
             {% elif field.field.widget.input_type == 'textarea' %}
               <textarea name="{{ field.html_name }}" class="form-control" rows="2">{{ field.value|default:'' }}</textarea>
             {% else %}
-              <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}"
-                     value="{{ field.value|default:'' }}" class="form-control {% if field.errors %}is-invalid{% endif %}">
+              <input
+                type="{{ field.field.widget.input_type }}"
+                name="{{ field.html_name }}"
+                value="{{ field.value|default:'' }}"
+                class="form-control {% if field.errors %}is-invalid{% endif %}"
+              >
             {% endif %}
             {% for err in field.errors %}<div class="invalid-feedback d-block">{{ err }}</div>{% endfor %}
           </div>
@@ -53,13 +59,13 @@
             <p id="file-name" class="mt-2 fw-bold text-primary"></p>
           </div>
           <input type="file" name="video_file" id="id_video_file" accept="video/*" class="d-none">
+          {% for err in form.video_file.errors %}<div class="invalid-feedback d-block">{{ err }}</div>{% endfor %}
         </div>
 
         <div id="progress-bar-wrap" class="mb-3">
-          <label class="form-label">Uploading…</label>
+          <label class="form-label">Uploading...</label>
           <div class="progress">
-            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated"
-                 style="width: 0%">0%</div>
+            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
           </div>
         </div>
 
@@ -84,11 +90,13 @@ const submitBtn = document.getElementById('submit-btn');
 fileInput.addEventListener('change', () => {
   if (fileInput.files[0]) fileName.textContent = fileInput.files[0].name;
 });
-['dragover','dragenter'].forEach(e => dropZone.addEventListener(e, ev => {
-  ev.preventDefault(); dropZone.classList.add('dragover');
+['dragover', 'dragenter'].forEach(e => dropZone.addEventListener(e, ev => {
+  ev.preventDefault();
+  dropZone.classList.add('dragover');
 }));
-['dragleave','drop'].forEach(e => dropZone.addEventListener(e, ev => {
-  ev.preventDefault(); dropZone.classList.remove('dragover');
+['dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, ev => {
+  ev.preventDefault();
+  dropZone.classList.remove('dragover');
   if (e === 'drop' && ev.dataTransfer.files[0]) {
     const dt = new DataTransfer();
     dt.items.add(ev.dataTransfer.files[0]);
@@ -133,37 +141,38 @@ form.addEventListener('submit', function(e) {
   });
 
   xhr.addEventListener('load', () => {
-    // Success = server redirected away from the upload page
     const landedOnUploadPage = xhr.responseURL.includes('/upload');
     if (!landedOnUploadPage && xhr.responseURL) {
-      // ── Show success state before navigating ───────────────────────────
-      progBar.style.width    = '100%';
-      progBar.textContent    = '100%';
+      progBar.style.width = '100%';
+      progBar.textContent = '100%';
       progBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
       progBar.classList.add('bg-success');
 
       const successBox = document.createElement('div');
       successBox.className = 'alert alert-success d-flex align-items-center gap-2 mt-3';
-      successBox.innerHTML  =
+      successBox.innerHTML =
         '<i class="bi bi-check-circle-fill flex-shrink-0" style="font-size:1.2rem;"></i>' +
-        '<div><strong>Content saved!</strong> Redirecting to study material upload…</div>';
+        '<div><strong>Content saved!</strong> Redirecting to study material upload...</div>';
       form.prepend(successBox);
 
-      submitBtn.textContent = 'Redirecting…';
+      submitBtn.textContent = 'Redirecting...';
       setTimeout(() => { window.location.href = xhr.responseURL; }, 1500);
       return;
     }
 
-    // Server rendered the form again — extract the error message from the HTML
     try {
       const parser = new DOMParser();
-      const doc    = parser.parseFromString(xhr.responseText, 'text/html');
+      const doc = parser.parseFromString(xhr.responseText, 'text/html');
       const alerts = doc.querySelectorAll('.alert');
-      if (alerts.length) {
-        const msgs = [...alerts].map(a => a.innerText || a.textContent).join(' ');
+      const fieldErrors = doc.querySelectorAll('.invalid-feedback, .text-danger.small');
+      if (alerts.length || fieldErrors.length) {
+        const msgs = [
+          ...[...alerts].map(a => a.innerText || a.textContent),
+          ...[...fieldErrors].map(node => node.innerText || node.textContent),
+        ].join(' ');
         showUploadError(msgs.trim());
       } else {
-        showUploadError('Upload failed — the server rejected the request. Check your R2 credentials and bucket settings.');
+        showUploadError('Upload failed. Please review the form and try again.');
       }
     } catch (_) {
       showUploadError('Upload failed. Please try again.');
@@ -171,7 +180,7 @@ form.addEventListener('submit', function(e) {
   });
 
   xhr.addEventListener('error', () => {
-    showUploadError('Network error — could not reach the server. Check your connection.');
+    showUploadError('Network error - could not reach the server. Check your connection.');
   });
 
   xhr.addEventListener('timeout', () => {

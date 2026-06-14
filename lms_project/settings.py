@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -28,13 +29,27 @@ def env_list(name, default=''):
     return [item.strip() for item in raw.split(',') if item.strip()]
 
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-me-in-env')
+APP_ENV = os.environ.get('APP_ENV', 'development').strip().lower()
+IS_PRODUCTION = APP_ENV == 'production'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env_bool('DEBUG', default=True)
+DEBUG = env_bool('DEBUG', default=not IS_PRODUCTION)
 
-ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1')
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'django-insecure-dev-only-key'
+    else:
+        raise ImproperlyConfigured('SECRET_KEY must be set when DEBUG is disabled.')
+if not DEBUG and SECRET_KEY.startswith('django-insecure'):
+    raise ImproperlyConfigured('Set a unique SECRET_KEY before running without DEBUG.')
+
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1' if DEBUG else '')
+if not DEBUG and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured('ALLOWED_HOSTS must be configured when DEBUG is disabled.')
+
+CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS')
 
 
 # Application definition
@@ -127,7 +142,11 @@ AUTH_USER_MODEL = 'users.User'
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 8},
+    },
+    {'NAME': 'users.password_validators.StrongPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
@@ -172,6 +191,47 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = 'login'
+
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'lms-project-default-cache',
+    }
+}
+
+LOGIN_FAILURE_LIMIT = int(os.environ.get('LOGIN_FAILURE_LIMIT', '5'))
+LOGIN_LOCKOUT_SECONDS = int(os.environ.get('LOGIN_LOCKOUT_SECONDS', '300'))
+MAX_VIDEO_UPLOAD_BYTES = int(os.environ.get('MAX_VIDEO_UPLOAD_BYTES', str(2 * 1024 * 1024 * 1024)))
+MAX_STUDY_MATERIAL_BYTES = int(os.environ.get('MAX_STUDY_MATERIAL_BYTES', str(50 * 1024 * 1024)))
+MAX_PROFILE_IMAGE_BYTES = int(os.environ.get('MAX_PROFILE_IMAGE_BYTES', str(5 * 1024 * 1024)))
+
+SECURITY_FLAGS_ENABLED = IS_PRODUCTION and not RUNNING_TESTS
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', default=SECURITY_FLAGS_ENABLED)
+SESSION_COOKIE_SAMESITE = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
+CSRF_COOKIE_HTTPONLY = env_bool('CSRF_COOKIE_HTTPONLY', default=True)
+CSRF_COOKIE_SECURE = env_bool('CSRF_COOKIE_SECURE', default=SECURITY_FLAGS_ENABLED)
+CSRF_COOKIE_SAMESITE = os.environ.get('CSRF_COOKIE_SAMESITE', 'Lax')
+SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', default=SECURITY_FLAGS_ENABLED)
+SECURE_HSTS_SECONDS = int(
+    os.environ.get('SECURE_HSTS_SECONDS', '31536000' if SECURITY_FLAGS_ENABLED else '0')
+)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
+    'SECURE_HSTS_INCLUDE_SUBDOMAINS',
+    default=SECURITY_FLAGS_ENABLED,
+)
+SECURE_HSTS_PRELOAD = env_bool('SECURE_HSTS_PRELOAD', default=False)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = os.environ.get('SECURE_REFERRER_POLICY', 'same-origin')
+SECURE_CROSS_ORIGIN_OPENER_POLICY = os.environ.get(
+    'SECURE_CROSS_ORIGIN_OPENER_POLICY',
+    'same-origin',
+)
+X_FRAME_OPTIONS = os.environ.get('X_FRAME_OPTIONS', 'DENY')
+
+if env_bool('USE_X_FORWARDED_PROTO', default=IS_PRODUCTION):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
 # Celery configuration

@@ -150,9 +150,9 @@ def chatbot_query(request):
 
             query_embedding = generate_query_embedding(english_query)
         except Exception as exc:
-            logger.error("Embedding generation failed: %s", exc)
+            logger.exception("Embedding generation failed")
             return JsonResponse(
-                {"error": "Embedding service unavailable", "detail": str(exc)},
+                {"error": "Embedding service unavailable"},
                 status=503,
             )
 
@@ -161,9 +161,9 @@ def chatbot_query(request):
 
             raw_chunks = search_chunks(query_embedding, course_id, top_k=5)
         except Exception as exc:
-            logger.error("Pinecone search failed: %s", exc)
+            logger.exception("Pinecone search failed")
             return JsonResponse(
-                {"error": "Vector search unavailable", "detail": str(exc)},
+                {"error": "Vector search unavailable"},
                 status=503,
             )
 
@@ -183,9 +183,9 @@ def chatbot_query(request):
 
             answer_en = get_answer(english_query, raw_chunks, language="en")
         except Exception as exc:
-            logger.error("Groq LLM call failed: %s", exc)
+            logger.exception("Groq LLM call failed")
             return JsonResponse(
-                {"error": "LLM service unavailable", "detail": str(exc)},
+                {"error": "LLM service unavailable"},
                 status=503,
             )
 

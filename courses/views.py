@@ -2,38 +2,15 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Exists, OuterRef
 from django.shortcuts import get_object_or_404, redirect, render
 
+from users.decorators import role_required
 from users.models import User
 from .forms import CourseForm
 from .models import Course, Enrollment
 
 logger = logging.getLogger(__name__)
-
-
-def _instructor_or_admin(view_func):
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('login')
-        if request.user.role not in (User.Role.ADMIN, User.Role.INSTRUCTOR):
-            messages.error(request, 'Trainers and admins only.')
-            return redirect('login')
-        return view_func(request, *args, **kwargs)
-    wrapper.__name__ = view_func.__name__
-    return wrapper
-
-
-def _admin_required(view_func):
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('login')
-        if request.user.role != User.Role.ADMIN:
-            messages.error(request, 'Admin access required.')
-            return redirect('home')
-        return view_func(request, *args, **kwargs)
-    wrapper.__name__ = view_func.__name__
-    return wrapper
-
 
 def _delete_course_assets(course, delete_videos=True):
     """Remove external assets for a course and optionally delete its videos."""
@@ -62,35 +39,42 @@ def _delete_course_assets(course, delete_videos=True):
 
 @login_required
 def course_list(request):
+    courses = Course.objects.filter(is_active=True).select_related('instructor')
     if request.user.role == User.Role.STUDENT:
-        enrolled_ids = Enrollment.objects.filter(
-            student=request.user, is_active=True
-        ).values_list('course_id', flat=True)
-        courses = Course.objects.filter(id__in=enrolled_ids).select_related('instructor')
-    else:
-        courses = Course.objects.filter(is_active=True).select_related('instructor')
+        enrollment_qs = Enrollment.objects.filter(
+            student=request.user,
+            course_id=OuterRef('pk'),
+            is_active=True,
+        )
+        courses = courses.annotate(is_enrolled=Exists(enrollment_qs))
+    elif request.user.role == User.Role.INSTRUCTOR:
+        courses = courses.filter(instructor=request.user)
     return render(request, 'courses/course_list.html', {'courses': courses})
 
 
 @login_required
 def course_detail(request, course_id):
-    course = get_object_or_404(Course, id=course_id)
+    course = get_object_or_404(
+        Course.objects.select_related('instructor'),
+        id=course_id,
+        is_active=True,
+    )
+    if request.user.role == User.Role.INSTRUCTOR and course.instructor_id != request.user.id:
+        messages.error(request, 'You do not have permission to view that course.')
+        return redirect('course-list')
 
-    # Students can only view courses they are enrolled in
-    if request.user.role == User.Role.STUDENT:
-        if not Enrollment.objects.filter(
-            student=request.user, course=course, is_active=True
-        ).exists():
-            messages.error(request, 'You are not enrolled in this course.')
-            return redirect('course-list')
-
-    videos = course.videos.all()
     enrolled = (
         request.user.role == User.Role.STUDENT
         and Enrollment.objects.filter(
             student=request.user, course=course, is_active=True
         ).exists()
     )
+    if request.user.role == User.Role.STUDENT and not enrolled:
+        videos = course.videos.none()
+        video_count = course.videos.count()
+    else:
+        videos = course.videos.prefetch_related('quizzes')
+        video_count = videos.count()
 
     # Determine if course is locked for this instructor (1 video + study material uploaded)
     course_locked = False
@@ -101,6 +85,7 @@ def course_detail(request, course_id):
     return render(request, 'courses/course_detail.html', {
         'course':          course,
         'videos':          videos,
+        'video_count':     video_count,
         'enrolled':        enrolled,
         'course_locked':   course_locked,
         'chatbot_course_id': course.id if enrolled else 0,
@@ -109,7 +94,7 @@ def course_detail(request, course_id):
     })
 
 
-@_instructor_or_admin
+@role_required(User.Role.ADMIN, User.Role.INSTRUCTOR, message='Trainers and admins only.')
 def create_course(request):
     if request.method == 'POST':
         form = CourseForm(request.POST, user=request.user)
@@ -125,7 +110,7 @@ def create_course(request):
     return render(request, 'courses/create_course.html', {'form': form})
 
 
-@_admin_required
+@role_required(User.Role.ADMIN, message='Admin access required.')
 def enroll_student(request, course_id):
     course = get_object_or_404(Course, id=course_id)
     if request.method == 'POST':
@@ -149,7 +134,7 @@ def enroll_student(request, course_id):
     })
 
 
-@_admin_required
+@role_required(User.Role.ADMIN, message='Admin access required.')
 def assign_instructor(request, course_id):
     course = get_object_or_404(Course, id=course_id)
     if request.method == 'POST':
@@ -174,7 +159,7 @@ def assign_instructor(request, course_id):
     })
 
 
-@_admin_required
+@role_required(User.Role.ADMIN, message='Admin access required.')
 def delete_course_content(request, course_id):
     """Delete all videos, study material, Pinecone vectors, and quizzes for a course."""
     course = get_object_or_404(Course, id=course_id)
@@ -197,7 +182,7 @@ def delete_course_content(request, course_id):
     })
 
 
-@_admin_required
+@role_required(User.Role.ADMIN, message='Admin access required.')
 def delete_course(request, course_id):
     """Delete a course together with all its content and enrollments."""
     course = get_object_or_404(Course, id=course_id)
@@ -231,7 +216,10 @@ def my_courses(request):
         ).select_related('course__instructor')
         courses = [e.course for e in enrollments]
     elif request.user.role == User.Role.INSTRUCTOR:
-        courses = list(Course.objects.filter(instructor=request.user, is_active=True))
+        courses = list(
+            Course.objects.filter(instructor=request.user, is_active=True)
+            .select_related('instructor')
+        )
     else:
-        courses = list(Course.objects.filter(is_active=True))
+        courses = list(Course.objects.filter(is_active=True).select_related('instructor'))
     return render(request, 'courses/my_courses.html', {'courses': courses})

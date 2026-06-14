@@ -76,5 +76,63 @@ class CourseDeletionTests(TestCase):
 
         response = self.client.post(reverse('delete-course', args=[self.course.id]))
 
-        self.assertRedirects(response, reverse('home'), fetch_redirect_response=False)
+        self.assertRedirects(
+            response,
+            reverse('instructor-dashboard'),
+            fetch_redirect_response=False,
+        )
         self.assertTrue(Course.objects.filter(id=self.course.id).exists())
+
+
+class StudentCourseBrowseTests(TestCase):
+    def setUp(self):
+        self.instructor = User.objects.create_user(
+            username='trainer_browse',
+            password='pass123',
+            role=User.Role.INSTRUCTOR,
+        )
+        self.student = User.objects.create_user(
+            username='student_browse',
+            password='pass123',
+            role=User.Role.STUDENT,
+        )
+        self.enrolled_course = Course.objects.create(
+            title='Enrolled Course',
+            instructor=self.instructor,
+            is_active=True,
+        )
+        self.available_course = Course.objects.create(
+            title='Available Course',
+            instructor=self.instructor,
+            is_active=True,
+        )
+        Enrollment.objects.create(
+            student=self.student,
+            course=self.enrolled_course,
+            is_active=True,
+        )
+        Video.objects.create(
+            course=self.available_course,
+            title='Locked Lesson',
+            status=Video.Status.READY,
+            english_transcript='Protected lesson notes',
+        )
+
+    def test_student_course_list_shows_all_active_courses(self):
+        self.client.force_login(self.student)
+
+        response = self.client.get(reverse('course-list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Enrolled Course')
+        self.assertContains(response, 'Available Course')
+        self.assertContains(response, 'Available to enroll')
+
+    def test_student_can_view_unenrolled_course_without_accessing_content(self):
+        self.client.force_login(self.student)
+
+        response = self.client.get(reverse('course-detail', args=[self.available_course.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Course content is locked')
+        self.assertNotContains(response, 'Locked Lesson')

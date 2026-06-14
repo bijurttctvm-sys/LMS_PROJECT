@@ -2,56 +2,18 @@ import calendar as _calendar
 from datetime import date, datetime, timedelta
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from users.decorators import role_required
 from users.models import User
 from .models import DoubtSession, InstructorSlot, ProposedSlot
 
 
-# Access decorators
-
-def _instructor_required(view_func):
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('login')
-        if request.user.role != User.Role.INSTRUCTOR:
-            messages.error(request, 'Trainer access required.')
-            return redirect('home')
-        return view_func(request, *args, **kwargs)
-    wrapper.__name__ = view_func.__name__
-    return wrapper
-
-
-def _student_required(view_func):
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('login')
-        if request.user.role != User.Role.STUDENT:
-            messages.error(request, 'Trainee access required.')
-            return redirect('home')
-        return view_func(request, *args, **kwargs)
-    wrapper.__name__ = view_func.__name__
-    return wrapper
-
-
-def _admin_required(view_func):
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('login')
-        if request.user.role != User.Role.ADMIN:
-            messages.error(request, 'Admin access required.')
-            return redirect('home')
-        return view_func(request, *args, **kwargs)
-    wrapper.__name__ = view_func.__name__
-    return wrapper
-
-
 # Student views
 
-@_student_required
+@role_required(User.Role.STUDENT, message='Trainee access required.')
 def request_session(request):
     """Student submits a doubt-clearing request for one of their enrolled courses."""
     from courses.models import Enrollment
@@ -108,7 +70,7 @@ def request_session(request):
     })
 
 
-@_student_required
+@role_required(User.Role.STUDENT, message='Trainee access required.')
 def choose_slot(request, session_id):
     """Student picks one of the 3 time slots proposed by the instructor."""
     session = get_object_or_404(
@@ -166,7 +128,7 @@ def choose_slot(request, session_id):
     })
 
 
-@login_required
+@role_required(User.Role.STUDENT, message='Trainee access required.')
 def my_sessions(request):
     """Student: full session history with pending slot-choice alerts."""
     choose_sessions = []
@@ -193,7 +155,7 @@ def my_sessions(request):
 
 # Instructor views
 
-@_instructor_required
+@role_required(User.Role.INSTRUCTOR, message='Trainer access required.')
 def instructor_sessions(request):
     """Instructor: pending requests + upcoming/past sessions."""
     now = timezone.now()
@@ -245,7 +207,7 @@ def instructor_sessions(request):
     })
 
 
-@_instructor_required
+@role_required(User.Role.INSTRUCTOR, message='Trainer access required.')
 def propose_slots(request, session_id):
     """Instructor proposes 3 time slots for a requested doubt session."""
     session = get_object_or_404(
@@ -299,7 +261,7 @@ def propose_slots(request, session_id):
     return render(request, 'doubt_sessions/propose_slots.html', {'session': session})
 
 
-@_instructor_required
+@role_required(User.Role.INSTRUCTOR, message='Trainer access required.')
 def mark_outcome(request, session_id):
     """Instructor: mark a confirmed session as attended, not attended, or postponed."""
     session = get_object_or_404(DoubtSession, id=session_id, instructor=request.user)
@@ -353,7 +315,7 @@ def mark_outcome(request, session_id):
 
 # Admin views
 
-@_admin_required
+@role_required(User.Role.ADMIN, message='Admin access required.')
 def admin_sessions(request):
     """Admin: view all doubt sessions across the platform."""
     status_filter = request.GET.get('status', '')
@@ -373,7 +335,7 @@ def admin_sessions(request):
     })
 
 
-@_admin_required
+@role_required(User.Role.ADMIN, message='Admin access required.')
 def admin_close_session(request, session_id):
     """Admin: close a doubt session as COMPLETED or CANCELLED."""
     session = get_object_or_404(DoubtSession, id=session_id)

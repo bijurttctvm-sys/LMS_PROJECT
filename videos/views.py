@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from django.contrib import messages
@@ -7,21 +8,12 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from users.decorators import role_required
 from users.models import User
 from .forms import StudyMaterialUploadForm, VideoUploadForm
 from .models import Video
 
-
-def _instructor_or_admin(view_func):
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('login')
-        if request.user.role not in (User.Role.ADMIN, User.Role.INSTRUCTOR):
-            messages.error(request, 'Trainers and admins only.')
-            return redirect('login')
-        return view_func(request, *args, **kwargs)
-    wrapper.__name__ = view_func.__name__
-    return wrapper
+logger = logging.getLogger(__name__)
 
 
 def _try_signed_url(key):
@@ -45,8 +37,10 @@ def _course_is_locked(course, user):
 
 
 def _user_can_access_course(user, course):
-    if user.role in (User.Role.ADMIN, User.Role.INSTRUCTOR):
+    if user.role == User.Role.ADMIN:
         return True
+    if user.role == User.Role.INSTRUCTOR:
+        return course.instructor_id == user.id
     if user.role != User.Role.STUDENT:
         return False
 
@@ -54,6 +48,12 @@ def _user_can_access_course(user, course):
     return Enrollment.objects.filter(
         student=user, course=course, is_active=True
     ).exists()
+
+
+def _user_can_manage_course(user, course):
+    return user.role == User.Role.ADMIN or (
+        user.role == User.Role.INSTRUCTOR and course.instructor_id == user.id
+    )
 
 
 def _repair_stale_video_status(video):
@@ -66,12 +66,15 @@ def _repair_stale_video_status(video):
     return video.sync_runtime_status()
 
 
-@_instructor_or_admin
+@role_required(User.Role.ADMIN, User.Role.INSTRUCTOR, message='Trainers and admins only.')
 def upload_video_view(request):
     if request.method == 'POST':
         form = VideoUploadForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             course = form.cleaned_data['course']
+            if not _user_can_manage_course(request.user, course):
+                messages.error(request, 'You do not have permission to manage that course.')
+                return redirect('course-list')
 
             # Instructors: max 1 video per course
             if request.user.role == User.Role.INSTRUCTOR:
@@ -96,7 +99,11 @@ def upload_video_view(request):
                     from utils.r2_storage import upload_file
                     upload_file(video_file, key)
                 except Exception as exc:
-                    messages.error(request, f'Upload to R2 failed: {exc}')
+                    logger.exception('R2 upload failed for course %s: %s', course.id, exc)
+                    messages.error(
+                        request,
+                        'The video upload could not be completed right now. Please try again.'
+                    )
                     return render(request, 'videos/upload.html', {'form': form})
                 video.video_key = key
 
@@ -113,9 +120,12 @@ def upload_video_view(request):
     return render(request, 'videos/upload.html', {'form': form})
 
 
-@_instructor_or_admin
+@role_required(User.Role.ADMIN, User.Role.INSTRUCTOR, message='Trainers and admins only.')
 def upload_material_view(request, video_id):
-    video = get_object_or_404(Video, id=video_id)
+    video = get_object_or_404(Video.objects.select_related('course'), id=video_id)
+    if not _user_can_manage_course(request.user, video.course):
+        messages.error(request, 'You do not have permission to manage that course.')
+        return redirect('course-list')
 
     # Instructors: block re-upload once course is locked
     if request.user.role == User.Role.INSTRUCTOR:
@@ -138,7 +148,16 @@ def upload_material_view(request, video_id):
                 try:
                     english_text = _extract_text(material_file)
                 except Exception as exc:
-                    messages.error(request, f'Could not extract text from file: {exc}')
+                    logger.warning(
+                        'Study material extraction failed for video %s: %s',
+                        video.id,
+                        exc,
+                    )
+                    messages.error(
+                        request,
+                        'The uploaded file could not be processed. '
+                        'Please upload a valid PDF, DOCX, PPT, PPTX, or TXT file.'
+                    )
                     return render(request, 'videos/upload_material.html', {
                         'form': form, 'video': video,
                     })
@@ -160,9 +179,14 @@ def upload_material_view(request, video_id):
                 transaction.on_commit(lambda: process_study_material.delay(video.id))
                 processing_queued = True
             except Exception as exc:
+                logger.exception(
+                    'Background study-material processing could not be queued for video %s: %s',
+                    video.id,
+                    exc,
+                )
                 messages.warning(
                     request,
-                    f'Material saved but background processing unavailable: {exc}'
+                    'Study material was saved, but background processing is temporarily unavailable.'
                 )
 
             if processing_queued:
@@ -244,7 +268,7 @@ def video_list_view(request, course_id):
     if not _user_can_access_course(request.user, course):
         messages.error(
             request,
-            'You are not enrolled in this course. Contact your admin to get access.'
+            'You do not have permission to view that course content.'
         )
         return redirect('course-list')
     videos = Video.objects.filter(course=course)
@@ -253,12 +277,14 @@ def video_list_view(request, course_id):
 
 @login_required
 def video_detail_view(request, video_id):
-    video = _repair_stale_video_status(get_object_or_404(Video, id=video_id))
+    video = _repair_stale_video_status(
+        get_object_or_404(Video.objects.select_related('course'), id=video_id)
+    )
 
     if not _user_can_access_course(request.user, video.course):
         messages.error(
             request,
-            'You are not enrolled in this course. Contact your admin to get access.'
+            'You do not have permission to view that content.'
         )
         return redirect('course-list')
 
@@ -290,9 +316,12 @@ def video_detail_view(request, video_id):
     })
 
 
-@_instructor_or_admin
+@role_required(User.Role.ADMIN, User.Role.INSTRUCTOR, message='Trainers and admins only.')
 def generate_quiz_view(request, video_id):
-    video = get_object_or_404(Video, id=video_id)
+    video = get_object_or_404(Video.objects.select_related('course'), id=video_id)
+    if not _user_can_manage_course(request.user, video.course):
+        messages.error(request, 'You do not have permission to manage that content.')
+        return redirect('course-list')
 
     if request.method != 'POST':
         return redirect('video-detail', video_id=video.id)
@@ -336,14 +365,20 @@ def generate_quiz_view(request, video_id):
             'Quiz generation started. The draft will appear in the review queue shortly.'
         )
     except Exception as exc:
-        messages.warning(request, f'Task queue unavailable: {exc}')
+        logger.exception('Quiz generation queue failed for video %s: %s', video.id, exc)
+        messages.warning(
+            request,
+            'Quiz generation is temporarily unavailable. Please try again shortly.'
+        )
 
     return redirect('video-detail', video_id=video.id)
 
 
 @login_required
 def video_status_api(request, video_id):
-    video = _repair_stale_video_status(get_object_or_404(Video, id=video_id))
+    video = _repair_stale_video_status(
+        get_object_or_404(Video.objects.select_related('course'), id=video_id)
+    )
     if not _user_can_access_course(request.user, video.course):
         return JsonResponse({'error': 'Forbidden'}, status=403)
     return JsonResponse({

@@ -73,35 +73,21 @@
 <!-- Video / Study Material list -->
 <h4 class="mt-4">
   <i class="bi bi-collection-play me-1"></i>Study Material
-  <span class="text-muted fw-normal" style="font-size:.85rem;">({{ videos.count }})</span>
+  <span class="text-muted fw-normal" style="font-size:.85rem;">({{ video_count }})</span>
 </h4>
 
-{% if videos %}
-  {% if user.role == "student" and not enrolled %}
-  <div style="position:relative;">
-    <div style="filter:blur(3px);pointer-events:none;user-select:none;" aria-hidden="true">
-      <div class="list-group mt-2">
-        {% for v in videos %}
-        <div class="list-group-item d-flex justify-content-between align-items-center">
-          <div>
-            <strong>{{ v.title }}</strong>
-            <small class="text-muted ms-2">{{ v.get_language_code_display }}</small>
-          </div>
-          <span class="badge bg-{{ v.status_badge_class }}">{{ v.get_status_display }}</span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
-      <div class="card p-4 text-center shadow" style="max-width:340px;">
-        <i class="bi bi-lock-fill text-warning" style="font-size:2rem;"></i>
-        <p class="fw-semibold mt-2 mb-1">Content Locked</p>
-        <p class="text-muted small mb-0">Ask your admin to enroll you in this course.</p>
-      </div>
+{% if user.role == "student" and not enrolled %}
+  <div class="card border-warning mt-3">
+    <div class="card-body text-center py-4">
+      <i class="bi bi-lock-fill text-warning" style="font-size:2rem;"></i>
+      <p class="fw-semibold mt-3 mb-1">Course content is locked</p>
+      <p class="text-muted small mb-0">
+        This course currently has {{ video_count }} study material item{{ video_count|pluralize }}.
+        Ask your admin to enroll you to open the videos, notes, and quizzes.
+      </p>
     </div>
   </div>
-
-  {% else %}
+{% elif videos %}
   <div class="list-group mt-2">
     {% for v in videos %}
     <a href="{% url "video-detail" v.id %}"
@@ -124,8 +110,6 @@
     </a>
     {% endfor %}
   </div>
-  {% endif %}
-
 {% else %}
   <p class="text-muted mt-2">No study material uploaded yet.</p>
 {% endif %}

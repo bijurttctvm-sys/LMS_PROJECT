@@ -72,9 +72,7 @@
       <span class="text-muted ms-2 small">{{ video.course.title }}</span>
       <span class="badge bg-success ms-2">{{ count }} approved question{{ count|pluralize }}</span>
     </div>
-    <form method="get" action="{% url 'publish-quiz' video.id %}">
-      <button type="submit" class="btn btn-success btn-sm">Publish Quiz</button>
-    </form>
+    <a href="{% url 'publish-quiz' video.id %}" class="btn btn-success btn-sm">Publish Quiz</a>
   </div>
 </div>
 {% endfor %}

@@ -1,6 +1,7 @@
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -8,6 +9,7 @@ from django.utils import timezone
 from courses.models import Course
 from quizzes.models import Quiz, QuizDraft
 from users.models import User
+from .forms import StudyMaterialUploadForm
 from videos.models import Video
 
 
@@ -175,3 +177,59 @@ class StudyMaterialUploadStatusTests(TestCase):
             'Quiz generation was skipped because this content already has a published quiz.',
             messages,
         )
+
+
+class VideoAccessControlTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            username='owner_trainer',
+            password='pass123',
+            role=User.Role.INSTRUCTOR,
+        )
+        self.other_instructor = User.objects.create_user(
+            username='other_trainer',
+            password='pass123',
+            role=User.Role.INSTRUCTOR,
+        )
+        self.course = Course.objects.create(
+            title='Protected Course',
+            instructor=self.owner,
+            is_active=True,
+        )
+        self.video = Video.objects.create(
+            course=self.course,
+            title='Protected Video',
+            english_transcript='Protected notes',
+            status=Video.Status.READY,
+        )
+
+    def test_other_instructor_cannot_open_another_instructors_video(self):
+        self.client.force_login(self.other_instructor)
+
+        response = self.client.get(reverse('video-detail', args=[self.video.id]))
+
+        self.assertRedirects(response, reverse('course-list'))
+
+    def test_other_instructor_cannot_manage_another_instructors_video(self):
+        self.client.force_login(self.other_instructor)
+
+        response = self.client.post(reverse('generate-quiz', args=[self.video.id]))
+
+        self.assertRedirects(response, reverse('course-list'))
+
+
+class StudyMaterialUploadFormSecurityTests(TestCase):
+    def test_rejects_disallowed_file_extensions(self):
+        form = StudyMaterialUploadForm(
+            data={'english_content': '', 'malayalam_content': ''},
+            files={
+                'material_file': SimpleUploadedFile(
+                    'payload.exe',
+                    b'bad-data',
+                    content_type='application/octet-stream',
+                )
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('material_file', form.errors)

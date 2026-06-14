@@ -1,9 +1,7 @@
-from functools import wraps
-
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
+from users.decorators import role_home, role_required
 from users.models import User
 from .models import Quiz, QuizDraft, QuizQuestion, StudentQuizAttempt
 
@@ -11,11 +9,7 @@ from .models import Quiz, QuizDraft, QuizQuestion, StudentQuizAttempt
 # ── Access helpers ─────────────────────────────────────────────────────────────
 
 def _reviewer_home(user):
-    if user.role == User.Role.ADMIN:
-        return 'admin-dashboard'
-    if user.role == User.Role.INSTRUCTOR:
-        return 'instructor-dashboard'
-    return 'home'
+    return role_home(user)
 
 
 def _can_review_video(user, video):
@@ -34,30 +28,6 @@ def _reviewable_drafts(user):
     if user.role == User.Role.INSTRUCTOR:
         return drafts.filter(video__course__instructor=user)
     return drafts.none()
-
-
-def _reviewer_required(view_func):
-    @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('login')
-        if request.user.role not in (User.Role.ADMIN, User.Role.INSTRUCTOR):
-            messages.error(request, 'Quiz review access required.')
-            return redirect('home')
-        return view_func(request, *args, **kwargs)
-    return wrapper
-
-
-def _student_required(view_func):
-    @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('login')
-        if request.user.role != User.Role.STUDENT:
-            messages.error(request, 'Trainee access required.')
-            return redirect('home')
-        return view_func(request, *args, **kwargs)
-    return wrapper
 
 
 def _apply_draft_approval_fields(draft, data, prefix=''):
@@ -97,7 +67,7 @@ def _publish_approved_drafts(video, title):
 
 # ── Admin views ────────────────────────────────────────────────────────────────
 
-@_reviewer_required
+@role_required(User.Role.ADMIN, User.Role.INSTRUCTOR, message='Quiz review access required.')
 def quiz_draft_list(request):
     """Pending quiz drafts grouped by video."""
     pending = (
@@ -126,7 +96,7 @@ def quiz_draft_list(request):
     })
 
 
-@_reviewer_required
+@role_required(User.Role.ADMIN, User.Role.INSTRUCTOR, message='Quiz review access required.')
 def review_quiz_draft(request, draft_id):
     """Approve (optionally edit fields), or reject a single draft question."""
     draft = get_object_or_404(QuizDraft, id=draft_id)
@@ -173,7 +143,7 @@ def review_quiz_draft(request, draft_id):
     })
 
 
-@_reviewer_required
+@role_required(User.Role.ADMIN, User.Role.INSTRUCTOR, message='Quiz review access required.')
 def bulk_review_quiz_drafts(request, video_id):
     """Review all pending draft questions for a video in one screen."""
     from videos.models import Video
@@ -233,7 +203,7 @@ def bulk_review_quiz_drafts(request, video_id):
     })
 
 
-@_reviewer_required
+@role_required(User.Role.ADMIN, User.Role.INSTRUCTOR, message='Quiz review access required.')
 def publish_quiz(request, video_id):
     """Publish all approved questions for a video as a Quiz."""
     from videos.models import Video
@@ -262,7 +232,7 @@ def publish_quiz(request, video_id):
 
 # ── Student views ──────────────────────────────────────────────────────────────
 
-@_student_required
+@role_required(User.Role.STUDENT, message='Trainee access required.')
 def student_quiz_list(request):
     """Published quizzes for the courses a student is enrolled in."""
     from courses.models import Enrollment
@@ -290,7 +260,7 @@ def student_quiz_list(request):
     return render(request, 'quizzes/quiz_list.html', {'quiz_list': quiz_list})
 
 
-@_student_required
+@role_required(User.Role.STUDENT, message='Trainee access required.')
 def take_quiz(request, quiz_id):
     """One question at a time; answers stored in session until final submit."""
     quiz      = get_object_or_404(Quiz, id=quiz_id, is_published=True)
@@ -370,7 +340,7 @@ def take_quiz(request, quiz_id):
     })
 
 
-@_student_required
+@role_required(User.Role.STUDENT, message='Trainee access required.')
 def quiz_results(request, quiz_id):
     """Score card with per-question correct/incorrect breakdown."""
     quiz    = get_object_or_404(Quiz, id=quiz_id)
