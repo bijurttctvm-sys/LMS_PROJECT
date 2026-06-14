@@ -1,30 +1,40 @@
 {% extends "base.html" %}
-{% block title %}Register — LMS{% endblock %}
+{% block title %}Register | Learning Management Platform{% endblock %}
+{% block content_class %}auth-page{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-5">
-    <div class="card p-4 mt-5">
-      <h3 class="mb-3 text-center">Create Account</h3>
-      <form method="post">
-        {% csrf_token %}
-        {% for field in form %}
-          <div class="mb-3">
-            <label class="form-label">{{ field.label }}</label>
-            <input type="{{ field.field.widget.input_type }}"
-                   name="{{ field.html_name }}"
-                   id="{{ field.id_for_label }}"
-                   class="form-control {% if field.errors %}is-invalid{% endif %}"
-                   {% if field.value %}value="{{ field.value }}"{% endif %}>
-            {% for err in field.errors %}
-              <div class="invalid-feedback">{{ err }}</div>
-            {% endfor %}
-          </div>
-        {% endfor %}
-        <button type="submit" class="btn btn-primary w-100">Register</button>
-      </form>
-      <hr>
-      <p class="text-center mb-0">Already have an account? <a href="{% url 'login' %}">Login</a></p>
+<div class="auth-shell">
+  {% include "users/_auth_brand_panel.html" %}
+
+  <section class="auth-form-card" aria-labelledby="register-title">
+    <div class="auth-form-header">
+      <p class="auth-form-kicker">Create Account</p>
+      <h2 class="auth-form-title" id="register-title">Start with the LMS workspace</h2>
+      <p class="auth-form-subtitle">
+        Set up your secure access to the Learning Management Platform and begin using the course environment.
+      </p>
     </div>
-  </div>
+
+    <form method="post">
+      {% csrf_token %}
+      {% for field in form %}
+        <div class="mb-3">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          <input type="{{ field.field.widget.input_type }}"
+                 name="{{ field.html_name }}"
+                 id="{{ field.id_for_label }}"
+                 class="form-control {% if field.errors %}is-invalid{% endif %}"
+                 {% if field.field.widget.attrs.placeholder %}placeholder="{{ field.field.widget.attrs.placeholder }}"{% endif %}
+                 {% if field.value %}value="{{ field.value }}"{% endif %}>
+          {% for err in field.errors %}
+            <div class="invalid-feedback">{{ err }}</div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn auth-submit-btn w-100">Register</button>
+    </form>
+
+    <hr class="auth-form-divider">
+    <p class="auth-form-switch">Already have an account? <a href="{% url 'login' %}">Login</a></p>
+  </section>
 </div>
 {% endblock %}

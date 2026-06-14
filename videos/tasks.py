@@ -4,14 +4,34 @@ import logging
 import os
 import re
 from collections import Counter
+from difflib import SequenceMatcher
 
 from celery import shared_task
 from django.utils import timezone
+from quizzes.constants import QUIZ_TARGET_QUESTION_COUNT
 
 logger = logging.getLogger(__name__)
 
 WORDS_PER_CHUNK = 500
 TOPIC_SIM_THRESHOLD = 0.4
+_QUIZ_GROQ_MODEL = 'llama-3.1-8b-instant'
+_QUIZ_REQUIRED_KEYS = (
+    'question',
+    'option_a',
+    'option_b',
+    'option_c',
+    'option_d',
+    'correct_option',
+    'explanation',
+)
+_QUIZ_JSON_FENCE_RE = re.compile(r'```(?:json)?\s*([\s\S]+?)\s*```', re.IGNORECASE)
+_SMART_QUOTES_TRANS = str.maketrans({
+    '\u2018': "'",
+    '\u2019': "'",
+    '\u201c': '"',
+    '\u201d': '"',
+})
+_QUIZ_DUPLICATE_SIMILARITY_THRESHOLD = 0.9
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +214,15 @@ def generate_embeddings(self, video_id):
 
 
 def queue_quiz_generation(video_id, force=False):
-    """Queue quiz generation unless the video already has a quiz or reviewable drafts."""
+    """
+    Queue quiz generation unless the video already has a quiz or reviewable drafts.
+
+    Returns:
+        True when quiz generation was queued.
+        False when queueing was intentionally skipped because reviewable drafts
+        or a quiz already exist.
+        None when queueing failed unexpectedly.
+    """
     try:
         from quizzes.models import Quiz, QuizDraft
         already_has_quiz = Quiz.objects.filter(video_id=video_id).exists()
@@ -210,12 +238,392 @@ def queue_quiz_generation(video_id, force=False):
         return True
     except Exception as exc:
         logger.warning('[%s] Quiz queue failed: %s', video_id, exc)
-        return False
+        return None
 
 
 def _auto_trigger_quiz(video_id):
     """Backward-compatible wrapper for older call sites."""
     return queue_quiz_generation(video_id)
+
+
+def _build_quiz_prompt(excerpt, repair=False):
+    prefix = (
+        "A previous attempt returned invalid or truncated JSON. "
+        "Regenerate the quiz from scratch.\n\n"
+        if repair else
+        ""
+    )
+    return (
+        f"{prefix}"
+        "You are a quiz generator for an online course. "
+        f"Generate exactly {QUIZ_TARGET_QUESTION_COUNT} multiple-choice questions from the lecture transcript below.\n\n"
+        "Rules:\n"
+        "- Each question must test conceptual understanding, not just literal recall.\n"
+        "- Each question must have exactly 4 options labelled A, B, C, D.\n"
+        "- Exactly one option is correct.\n"
+        "- Include a brief explanation (1-2 short sentences) for the correct answer.\n"
+        "- Keep each option concise.\n"
+        "- Escape any double quotes inside values.\n\n"
+        "Return ONLY a valid compact JSON array on a single line. "
+        "Do not use markdown, comments, or extra text.\n"
+        "Each object must have exactly these keys:\n"
+        '  "question", "option_a", "option_b", "option_c", "option_d", '
+        '"correct_option" (value: "a"/"b"/"c"/"d"), "explanation"\n\n'
+        f"Transcript:\n{excerpt}"
+    )
+
+
+def _request_quiz_response(client, excerpt, repair=False):
+    response = client.chat.completions.create(
+        model=_QUIZ_GROQ_MODEL,
+        messages=[
+            {
+                'role': 'system',
+                'content': (
+                    'You are a helpful quiz generator. '
+                    'Return only compact valid JSON with no markdown.'
+                ),
+            },
+            {'role': 'user', 'content': _build_quiz_prompt(excerpt, repair=repair)},
+        ],
+        temperature=0.2 if repair else 0.3,
+        max_tokens=4096,
+    )
+    return (response.choices[0].message.content or '').strip()
+
+
+def _normalise_quiz_questions(questions, expected_count=QUIZ_TARGET_QUESTION_COUNT):
+    if isinstance(questions, dict):
+        questions = [questions]
+    if not isinstance(questions, list):
+        raise ValueError(f'Expected JSON array, got {type(questions).__name__}')
+    if len(questions) < expected_count:
+        raise ValueError(f'Expected {expected_count} quiz questions, got {len(questions)}')
+
+    cleaned = []
+    for idx, item in enumerate(questions[:expected_count], start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f'Question {idx} must be an object')
+
+        payload = {key: str(item.get(key, '')).strip() for key in _QUIZ_REQUIRED_KEYS}
+        if not payload['question']:
+            raise ValueError(f'Question {idx} is missing question text')
+        for option_key in ('option_a', 'option_b', 'option_c', 'option_d'):
+            if not payload[option_key]:
+                raise ValueError(f'Question {idx} is missing {option_key}')
+
+        correct = payload['correct_option'].lower()
+        if correct not in ('a', 'b', 'c', 'd'):
+            raise ValueError(f'Question {idx} has invalid correct_option: {correct!r}')
+        payload['correct_option'] = correct
+        cleaned.append(payload)
+
+    return cleaned
+
+
+def _parse_quiz_response(raw, expected_count=QUIZ_TARGET_QUESTION_COUNT):
+    raw = (raw or '').strip()
+    if not raw:
+        raise ValueError('Empty quiz response')
+
+    normalised_raw = raw.translate(_SMART_QUOTES_TRANS)
+    candidates = []
+
+    fence = _QUIZ_JSON_FENCE_RE.search(normalised_raw)
+    if fence:
+        candidates.append(fence.group(1).strip())
+
+    candidates.append(normalised_raw)
+
+    first_bracket = normalised_raw.find('[')
+    last_bracket = normalised_raw.rfind(']')
+    if 0 <= first_bracket < last_bracket:
+        candidates.append(normalised_raw[first_bracket:last_bracket + 1].strip())
+
+    decoder = json.JSONDecoder()
+    seen = set()
+    last_error = None
+
+    for candidate in candidates:
+        candidate = candidate.strip()
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            last_error = exc
+            try:
+                parsed, _ = decoder.raw_decode(candidate)
+            except json.JSONDecodeError as raw_exc:
+                last_error = raw_exc
+                continue
+
+        return _normalise_quiz_questions(parsed, expected_count=expected_count)
+
+    if last_error:
+        raise last_error
+    raise ValueError('Could not parse quiz response')
+
+
+def _normalise_question_text(text):
+    return re.sub(r'[^a-z0-9]+', ' ', (text or '').lower()).strip()
+
+
+def _question_is_duplicate(candidate_text, existing_texts):
+    candidate = _normalise_question_text(candidate_text)
+    if not candidate:
+        return True
+
+    for existing_text in existing_texts:
+        existing = _normalise_question_text(existing_text)
+        if not existing:
+            continue
+        if candidate == existing:
+            return True
+        if SequenceMatcher(None, candidate, existing).ratio() >= _QUIZ_DUPLICATE_SIMILARITY_THRESHOLD:
+            return True
+    return False
+
+
+def _existing_question_texts(video):
+    from quizzes.models import QuizDraft, QuizQuestion
+
+    draft_texts = QuizDraft.objects.filter(video=video).values_list('question_text', flat=True)
+    published_texts = QuizQuestion.objects.filter(quiz__video=video).values_list('question_text', flat=True)
+    return [text.strip() for text in list(draft_texts) + list(published_texts) if (text or '').strip()]
+
+
+def _format_question_list_for_prompt(question_texts):
+    unique = []
+    seen = set()
+    for text in question_texts:
+        cleaned = ' '.join((text or '').split())
+        key = cleaned.lower()
+        if not cleaned or key in seen:
+            continue
+        seen.add(key)
+        unique.append(cleaned[:240])
+    if not unique:
+        return 'None.'
+    return '\n'.join(f'- {text}' for text in unique[:25])
+
+
+def _build_replacement_quiz_prompt(excerpt, existing_questions, rejected_question='', rejection_note='', repair=False):
+    prefix = (
+        "The previous replacement was invalid, duplicate, or truncated. "
+        "Generate a different replacement question from scratch.\n\n"
+        if repair else
+        ""
+    )
+    question_request = (
+        "Generate exactly 1 replacement multiple-choice question from the lecture transcript below.\n\n"
+        if rejected_question else
+        "Generate exactly 1 additional multiple-choice question from the lecture transcript below.\n\n"
+    )
+    uniqueness_rule = (
+        "- The replacement must test a different concept or angle from the rejected question.\n"
+        if rejected_question else
+        "- The new question must cover a different concept or angle from the existing questions listed below.\n"
+    )
+    rejected_context = ''
+    if rejected_question:
+        rejected_context += f"Rejected question:\n{rejected_question.strip()[:300]}\n\n"
+    if rejection_note:
+        rejected_context += f"Reviewer feedback:\n{rejection_note.strip()[:300]}\n\n"
+
+    return (
+        f"{prefix}"
+        "You are a quiz generator for an online course. "
+        f"{question_request}"
+        "Rules:\n"
+        f"{uniqueness_rule}"
+        "- It must not duplicate or closely paraphrase any existing question listed below.\n"
+        "- The question must test conceptual understanding, not just literal recall.\n"
+        "- Include exactly 4 options labelled A, B, C, D.\n"
+        "- Exactly one option is correct.\n"
+        "- Include a brief explanation (1-2 short sentences) for the correct answer.\n"
+        "- Keep the question and options concise.\n"
+        "- Escape any double quotes inside values.\n\n"
+        "Existing questions to avoid:\n"
+        f"{_format_question_list_for_prompt(existing_questions)}\n\n"
+        f"{rejected_context}"
+        "Return ONLY a valid compact JSON array with 1 object on a single line. "
+        "Do not use markdown, comments, or extra text.\n"
+        "The object must have exactly these keys:\n"
+        '  "question", "option_a", "option_b", "option_c", "option_d", '
+        '"correct_option" (value: "a"/"b"/"c"/"d"), "explanation"\n\n'
+        f"Transcript:\n{excerpt}"
+    )
+
+
+def _request_replacement_quiz_response(client, excerpt, existing_questions, rejected_question='', rejection_note='', repair=False):
+    response = client.chat.completions.create(
+        model=_QUIZ_GROQ_MODEL,
+        messages=[
+            {
+                'role': 'system',
+                'content': (
+                    'You are a helpful quiz generator. '
+                    'Return only compact valid JSON with no markdown.'
+                ),
+            },
+            {
+                'role': 'user',
+                'content': _build_replacement_quiz_prompt(
+                    excerpt,
+                    existing_questions,
+                    rejected_question=rejected_question,
+                    rejection_note=rejection_note,
+                    repair=repair,
+                ),
+            },
+        ],
+        temperature=0.2,
+        max_tokens=1024,
+    )
+    return (response.choices[0].message.content or '').strip()
+
+
+def generate_replacement_quiz_draft(video_id, rejected_question='', rejection_note='', max_attempts=3):
+    from django.conf import settings as _settings
+    from groq import Groq
+    from quizzes.models import QuizDraft
+    from videos.models import Video
+
+    try:
+        video = Video.objects.get(id=video_id)
+    except Video.DoesNotExist as exc:
+        raise ValueError(f'Video {video_id} not found') from exc
+
+    transcript = (video.english_transcript or '').strip()
+    if not transcript:
+        raise ValueError('Quiz replacement requires English study material')
+
+    excerpt = transcript[:4000]
+    existing_questions = _existing_question_texts(video)
+    if rejected_question and rejected_question.strip():
+        existing_questions.append(rejected_question.strip())
+
+    client = Groq(api_key=_settings.GROQ_API_KEY)
+    last_exc = None
+
+    for attempt in range(max_attempts):
+        raw = _request_replacement_quiz_response(
+            client,
+            excerpt,
+            existing_questions,
+            rejected_question=rejected_question,
+            rejection_note=rejection_note,
+            repair=attempt > 0,
+        )
+        try:
+            questions = _parse_quiz_response(raw, expected_count=1)
+        except Exception as exc:
+            last_exc = exc
+            logger.warning(
+                '[%s] Replacement quiz parse failed on attempt %d/%d: %s',
+                video_id,
+                attempt + 1,
+                max_attempts,
+                exc,
+            )
+            continue
+
+        candidate = questions[0]
+        if _question_is_duplicate(candidate['question'], existing_questions):
+            last_exc = ValueError('Replacement quiz question duplicated an existing question')
+            existing_questions.append(candidate['question'])
+            logger.warning(
+                '[%s] Replacement quiz candidate duplicated an existing question on attempt %d/%d',
+                video_id,
+                attempt + 1,
+                max_attempts,
+            )
+            continue
+
+        return QuizDraft.objects.create(
+            video=video,
+            question_text=candidate['question'],
+            option_a=candidate['option_a'],
+            option_b=candidate['option_b'],
+            option_c=candidate['option_c'],
+            option_d=candidate['option_d'],
+            correct_option=candidate['correct_option'],
+            explanation=candidate['explanation'],
+            status=QuizDraft.Status.PENDING,
+        )
+
+    if last_exc:
+        raise last_exc
+    raise ValueError('Could not generate a replacement quiz question')
+
+
+def generate_replacement_quiz_drafts(video_id, rejected_questions, rejection_note=''):
+    """Generate one replacement draft for each rejected question."""
+    replacements = []
+    cleaned_questions = [
+        question.strip()
+        for question in (rejected_questions or [])
+        if (question or '').strip()
+    ]
+
+    for index, rejected_question in enumerate(cleaned_questions, start=1):
+        try:
+            replacements.append(
+                generate_replacement_quiz_draft(
+                    video_id,
+                    rejected_question=rejected_question,
+                    rejection_note=rejection_note,
+                )
+            )
+        except Exception as exc:
+            logger.warning(
+                '[%s] Replacement quiz generation stopped after %d/%d questions: %s',
+                video_id,
+                len(replacements),
+                len(cleaned_questions),
+                exc,
+            )
+            if not replacements and index == 1:
+                raise
+            break
+
+    return replacements
+
+
+def generate_missing_quiz_drafts(video_id, missing_count, note=''):
+    """Generate additional draft questions to reach the target quiz count."""
+    missing_count = int(missing_count or 0)
+    if missing_count <= 0:
+        return []
+
+    replacements = []
+    guidance = note or 'Generate additional unique quiz questions to complete the quiz set.'
+
+    for attempt in range(missing_count):
+        try:
+            replacements.append(
+                generate_replacement_quiz_draft(
+                    video_id,
+                    rejected_question='',
+                    rejection_note=guidance,
+                )
+            )
+        except Exception as exc:
+            logger.warning(
+                '[%s] Missing quiz question generation stopped after %d/%d questions: %s',
+                video_id,
+                len(replacements),
+                missing_count,
+                exc,
+            )
+            if not replacements and attempt == 0:
+                raise
+            break
+
+    return replacements
 
 
 def _get_embeddings(video_id, raw_texts):
@@ -251,8 +659,6 @@ def _get_embeddings(video_id, raw_texts):
 
 @shared_task(bind=True, max_retries=2)
 def generate_quiz(self, video_id):
-    import json as _json
-    import re as _re
     from django.conf import settings as _settings
     from django.contrib.auth import get_user_model
     from django.core.mail import send_mail
@@ -280,57 +686,32 @@ def generate_quiz(self, video_id):
 
     excerpt = transcript[:4000]
 
-    prompt = (
-        "You are a quiz generator for an online course. "
-        "Generate exactly 10 multiple-choice questions from the lecture transcript below.\n\n"
-        "Rules:\n"
-        "- Each question must test conceptual understanding, not just literal recall.\n"
-        "- Each question must have exactly 4 options labelled A, B, C, D.\n"
-        "- Exactly one option is correct.\n"
-        "- Include a brief explanation (1-2 sentences) for the correct answer.\n\n"
-        "Return ONLY a valid JSON array of 10 objects. "
-        "Each object must have exactly these keys:\n"
-        '  "question", "option_a", "option_b", "option_c", "option_d", '
-        '"correct_option" (value: "a"/"b"/"c"/"d"), "explanation"\n\n'
-        f"Transcript:\n{excerpt}"
-    )
-
     try:
         from groq import Groq
         client = Groq(api_key=_settings.GROQ_API_KEY)
-        resp = client.chat.completions.create(
-            model='llama-3.1-8b-instant',
-            messages=[
-                {'role': 'system', 'content': 'You are a helpful quiz generator. Return only valid JSON, no markdown.'},
-                {'role': 'user',   'content': prompt},
-            ],
-            temperature=0.4,
-            max_tokens=3000,
-        )
-        raw = resp.choices[0].message.content.strip()
-
-        fence = _re.search(r'```(?:json)?\s*([\s\S]+?)\s*```', raw)
-        if fence:
-            raw = fence.group(1)
-
-        questions = _json.loads(raw)
-        if not isinstance(questions, list):
-            raise ValueError(f'Expected JSON array, got {type(questions).__name__}')
+        raw = _request_quiz_response(client, excerpt, repair=False)
+        try:
+            questions = _parse_quiz_response(raw)
+        except Exception as parse_exc:
+            logger.warning(
+                '[%s] Primary quiz JSON parse failed: %s. Retrying with stricter prompt.',
+                video_id,
+                parse_exc,
+            )
+            raw = _request_quiz_response(client, excerpt, repair=True)
+            questions = _parse_quiz_response(raw)
 
         drafts = []
-        for q in questions[:10]:
-            correct = str(q.get('correct_option', 'a')).strip().lower()
-            if correct not in ('a', 'b', 'c', 'd'):
-                correct = 'a'
+        for q in questions:
             drafts.append(QuizDraft(
                 video          = video,
-                question_text  = str(q.get('question', '')).strip(),
-                option_a       = str(q.get('option_a', '')).strip(),
-                option_b       = str(q.get('option_b', '')).strip(),
-                option_c       = str(q.get('option_c', '')).strip(),
-                option_d       = str(q.get('option_d', '')).strip(),
-                correct_option = correct,
-                explanation    = str(q.get('explanation', '')).strip(),
+                question_text  = q['question'],
+                option_a       = q['option_a'],
+                option_b       = q['option_b'],
+                option_c       = q['option_c'],
+                option_d       = q['option_d'],
+                correct_option = q['correct_option'],
+                explanation    = q['explanation'],
                 status         = QuizDraft.Status.PENDING,
             ))
         QuizDraft.objects.bulk_create(drafts)

@@ -8,6 +8,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from quizzes.constants import QUIZ_TARGET_QUESTION_COUNT
 from users.decorators import role_required
 from users.models import User
 from .forms import StudyMaterialUploadForm, VideoUploadForm
@@ -296,6 +297,8 @@ def video_detail_view(request, video_id):
 
     pending_draft_count = video.quiz_drafts.filter(status='pending').count()
     approved_draft_count = video.quiz_drafts.filter(status='approved').count()
+    has_published_quiz = video.quizzes.filter(is_published=True).exists()
+    missing_quiz_question_count = max(0, QUIZ_TARGET_QUESTION_COUNT - approved_draft_count)
     chunks = video.chunks.all()
     return render(request, 'videos/video_detail.html', {
         'video':             video,
@@ -303,6 +306,9 @@ def video_detail_view(request, video_id):
         'course_locked':     course_locked,
         'pending_draft_count': pending_draft_count,
         'approved_draft_count': approved_draft_count,
+        'has_published_quiz': has_published_quiz,
+        'missing_quiz_question_count': missing_quiz_question_count,
+        'quiz_target_count': QUIZ_TARGET_QUESTION_COUNT,
         'processing_timeout_minutes': int(Video.PROCESSING_TIMEOUT.total_seconds() // 60),
         'signed_url':        _try_signed_url(video.video_key),
         'english_pdf_url':   _try_signed_url(video.english_pdf_key),
@@ -333,6 +339,12 @@ def generate_quiz_view(request, video_id):
     try:
         from videos.tasks import queue_quiz_generation
         queued = queue_quiz_generation(video.id)
+        if queued is None:
+            messages.warning(
+                request,
+                'Quiz generation is temporarily unavailable. Please try again shortly.'
+            )
+            return redirect('video-detail', video_id=video.id)
         if not queued:
             pending_draft_count = video.quiz_drafts.filter(status='pending').count()
             approved_draft_count = video.quiz_drafts.filter(status='approved').count()

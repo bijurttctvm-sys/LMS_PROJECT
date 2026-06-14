@@ -2,8 +2,21 @@
 {% block title %}Courses — LMS{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h2>Courses</h2>
-  {% if user.role == 'admin' or user.role == 'instructor' %}
+  <div>
+    <h2 class="mb-1">Courses</h2>
+    {% if user.role == 'admin' %}
+      {% if admin_manage_action == 'edit' %}
+        <p class="text-muted mb-0">Select a course to modify its details.</p>
+      {% elif admin_manage_action == 'assign-student' %}
+        <p class="text-muted mb-0">Select a course to assign trainees.</p>
+      {% elif admin_manage_action == 'assign-instructor' %}
+        <p class="text-muted mb-0">Select a course to assign trainers.</p>
+      {% else %}
+        <p class="text-muted mb-0">A concise course summary for administrators.</p>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% if user.role == 'instructor' %}
     <a href="{% url 'create-course' %}" class="btn btn-primary">+ New Course</a>
   {% endif %}
 </div>
@@ -14,7 +27,61 @@
   </div>
 {% endif %}
 
-{% if courses %}
+{% if user.role == 'admin' %}
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a href="{% url 'create-course' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-circle me-1"></i>Create Course
+    </a>
+    <a href="{% url 'course-list' %}?manage=assign-instructor" class="btn btn-outline-warning btn-sm">
+      <i class="bi bi-person-badge me-1"></i>Assign Trainers
+    </a>
+    <a href="{% url 'course-list' %}?manage=assign-student" class="btn btn-outline-success btn-sm">
+      <i class="bi bi-people me-1"></i>Assign Trainees
+    </a>
+  </div>
+  {% if courses %}
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Course Name</th>
+              <th>Trainer</th>
+              <th class="text-center">Trainees Enrolled</th>
+              <th class="text-end">Management</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for course in courses %}
+            <tr>
+              <td class="fw-semibold">{{ course.title }}</td>
+              <td>
+                {% if course.instructor %}
+                  {{ course.instructor.get_full_name|default:course.instructor.username }}
+                {% else %}
+                  <span class="text-muted">Not assigned</span>
+                {% endif %}
+              </td>
+              <td class="text-center">{{ course.trainee_count }}</td>
+              <td class="text-end">
+                <div class="d-flex justify-content-end gap-2 flex-wrap">
+                  <a href="{% url 'edit-course' course.id %}" class="btn {% if admin_manage_action == 'edit' %}btn-primary{% else %}btn-outline-primary{% endif %} btn-sm">Modify</a>
+                  <a href="{% url 'enroll-student' course.id %}" class="btn {% if admin_manage_action == 'assign-student' %}btn-success{% else %}btn-outline-success{% endif %} btn-sm">Assign Trainee</a>
+                  <a href="{% url 'assign-instructor' course.id %}" class="btn {% if admin_manage_action == 'assign-instructor' %}btn-warning text-dark{% else %}btn-outline-warning{% endif %} btn-sm">Assign Trainer</a>
+                  <a href="{% url 'delete-course-content' course.id %}" class="btn btn-outline-danger btn-sm">Delete Content</a>
+                  <a href="{% url 'delete-course' course.id %}" class="btn btn-danger btn-sm">Delete Course</a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="alert alert-info">No courses available yet.</div>
+  {% endif %}
+{% elif courses %}
   <div class="row g-3">
     {% for course in courses %}
     <div class="col-md-4">
@@ -36,8 +103,8 @@
         </div>
         <div class="card-footer d-flex gap-2">
           <a href="{% url 'course-detail' course.id %}" class="btn btn-sm btn-outline-primary">View</a>
-          {% if user.role == 'admin' or user.role == 'instructor' %}
-            <a href="{% url 'enroll-student' course.id %}" class="btn btn-sm btn-outline-success">Enroll Student</a>
+          {% if user.role == 'instructor' %}
+            <a href="{% url 'upload-video' %}?course={{ course.id }}" class="btn btn-sm btn-outline-success">Upload Content</a>
           {% endif %}
         </div>
       </div>
@@ -46,7 +113,7 @@
   </div>
 {% else %}
   <div class="alert alert-info">No courses yet.
-    {% if user.role == 'admin' or user.role == 'instructor' %}
+    {% if user.role == 'instructor' or user.role == 'admin' %}
       <a href="{% url 'create-course' %}">Create one now.</a>
     {% endif %}
   </div>

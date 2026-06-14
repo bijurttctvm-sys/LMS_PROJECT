@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 {% load tz %}
-{% block title %}Request Interactive Session — LMS{% endblock %}
+{% block title %}Request Interactive Session - LMS{% endblock %}
 
 {% block content %}
 <div class="section-card">
   <div class="section-kicker"><i class="bi bi-calendar-plus"></i> Guided support</div>
   <h2 class="section-title mb-2">Request an Interactive Session</h2>
-  <p class="text-muted mb-0">Submit a request and your trainer will propose 3 time slots for you to choose from.</p>
+  <p class="text-muted mb-0">
+    Submit a request and your trainer will propose 3 time slots for you to choose from.
+    Maximum {{ max_sessions_per_course }} interactive sessions are allowed per course.
+  </p>
 </div>
 
 {% if not eligible and active_session %}
@@ -16,7 +19,7 @@
     {% if active_session.status == "requested" %}
     <p class="mb-1"><strong>Status:</strong> <span class="badge bg-warning text-dark">Waiting for trainer to propose slots</span></p>
     {% elif active_session.status == "selected" %}
-    <p class="mb-1"><strong>Status:</strong> <span class="badge bg-info text-dark">Trainer proposed 3 slots — <a href="{% url "choose-slot" active_session.id %}">choose one now</a></span></p>
+    <p class="mb-1"><strong>Status:</strong> <span class="badge bg-info text-dark">Trainer proposed 3 slots - <a href="{% url "choose-slot" active_session.id %}">choose one now</a></span></p>
     {% else %}
     <p class="mb-1"><strong>Status:</strong> <span class="badge bg-success">{{ active_session.get_status_display }}</span></p>
     {% if active_session.slot %}
@@ -48,7 +51,7 @@
 
 {% else %}
 <div class="section-card mt-4">
-  {% if enrollments %}
+  {% if enrollments and has_requestable_enrollments %}
   <form method="post">
     {% csrf_token %}
     <div class="mb-3">
@@ -56,12 +59,22 @@
       <select name="course_id" class="form-select" required>
         <option value="">Choose a course...</option>
         {% for e in enrollments %}
-        <option value="{{ e.course.id }}">
+        <option value="{{ e.course.id }}" {% if not e.can_request_session %}disabled{% endif %}>
           {{ e.course.title }}
-          {% if e.course.instructor %} — {{ e.course.instructor.get_full_name|default:e.course.instructor.username }}{% endif %}
+          {% if e.course.instructor %} - {{ e.course.instructor.get_full_name|default:e.course.instructor.username }}{% endif %}
+          {% if e.session_limit_reached %}
+          - limit reached ({{ e.sessions_booked }}/{{ max_sessions_per_course }} sessions used)
+          {% elif not e.has_trainer %}
+          - trainer not assigned
+          {% elif e.sessions_booked %}
+          - {{ e.sessions_booked }}/{{ max_sessions_per_course }} sessions used
+          {% endif %}
         </option>
         {% endfor %}
       </select>
+      <p class="text-muted small mt-2 mb-0">
+        Maximum {{ max_sessions_per_course }} interactive sessions are allowed per course.
+      </p>
     </div>
     <div class="mb-3">
       <label class="form-label fw-semibold">Message to Trainer <span class="text-muted fw-normal">(optional)</span></label>
@@ -73,8 +86,30 @@
       </button>
       <a href="{% url "student-dashboard" %}" class="btn btn-outline-secondary">Cancel</a>
     </div>
-    <p class="text-muted small mt-2 mb-0">After submission, your trainer will propose 3 available time slots for you to choose from.</p>
+    <p class="text-muted small mt-2 mb-0">
+      After submission, your trainer will propose 3 available time slots for you to choose from.
+    </p>
   </form>
+  {% elif enrollments %}
+  <div class="alert alert-info mb-0">
+    <strong>No courses are currently available for a new interactive session request.</strong><br>
+    Maximum {{ max_sessions_per_course }} interactive sessions are allowed per course, and requests
+    also require an assigned trainer.
+    <ul class="mb-0 mt-2 ps-3">
+      {% for e in enrollments %}
+      <li>
+        {{ e.course.title }}:
+        {% if e.session_limit_reached %}
+        limit reached ({{ e.sessions_booked }}/{{ max_sessions_per_course }} sessions used)
+        {% elif not e.has_trainer %}
+        trainer not assigned
+        {% else %}
+        available
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
   {% else %}
   <div class="alert alert-info mb-0">
     <strong>No enrolled courses found.</strong><br>

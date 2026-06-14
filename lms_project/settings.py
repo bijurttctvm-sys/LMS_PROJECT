@@ -34,6 +34,8 @@ IS_PRODUCTION = APP_ENV == 'production'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DEBUG', default=not IS_PRODUCTION)
+if IS_PRODUCTION and DEBUG:
+    raise ImproperlyConfigured('DEBUG must be disabled when APP_ENV=production.')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY')
@@ -205,8 +207,23 @@ LOGIN_LOCKOUT_SECONDS = int(os.environ.get('LOGIN_LOCKOUT_SECONDS', '300'))
 MAX_VIDEO_UPLOAD_BYTES = int(os.environ.get('MAX_VIDEO_UPLOAD_BYTES', str(2 * 1024 * 1024 * 1024)))
 MAX_STUDY_MATERIAL_BYTES = int(os.environ.get('MAX_STUDY_MATERIAL_BYTES', str(50 * 1024 * 1024)))
 MAX_PROFILE_IMAGE_BYTES = int(os.environ.get('MAX_PROFILE_IMAGE_BYTES', str(5 * 1024 * 1024)))
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(
+    os.environ.get('FILE_UPLOAD_MAX_MEMORY_SIZE', str(10 * 1024 * 1024))
+)
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(
+    os.environ.get('DATA_UPLOAD_MAX_MEMORY_SIZE', str(12 * 1024 * 1024))
+)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = int(
+    os.environ.get('DATA_UPLOAD_MAX_NUMBER_FIELDS', '1000')
+)
 
 SECURITY_FLAGS_ENABLED = IS_PRODUCTION and not RUNNING_TESTS
+SESSION_COOKIE_AGE = int(os.environ.get('SESSION_COOKIE_AGE', str(12 * 60 * 60)))
+SESSION_EXPIRE_AT_BROWSER_CLOSE = env_bool(
+    'SESSION_EXPIRE_AT_BROWSER_CLOSE',
+    default=False,
+)
+SESSION_SAVE_EVERY_REQUEST = env_bool('SESSION_SAVE_EVERY_REQUEST', default=False)
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', default=SECURITY_FLAGS_ENABLED)
 SESSION_COOKIE_SAMESITE = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
@@ -227,6 +244,10 @@ SECURE_REFERRER_POLICY = os.environ.get('SECURE_REFERRER_POLICY', 'same-origin')
 SECURE_CROSS_ORIGIN_OPENER_POLICY = os.environ.get(
     'SECURE_CROSS_ORIGIN_OPENER_POLICY',
     'same-origin',
+)
+SECURE_CROSS_ORIGIN_RESOURCE_POLICY = os.environ.get(
+    'SECURE_CROSS_ORIGIN_RESOURCE_POLICY',
+    'same-site',
 )
 X_FRAME_OPTIONS = os.environ.get('X_FRAME_OPTIONS', 'DENY')
 
@@ -270,6 +291,27 @@ GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
 SARVAM_API_KEY = os.environ.get('SARVAM_API_KEY')
 
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+REDIS_CACHE_URL = os.environ.get('REDIS_CACHE_URL', REDIS_URL)
+
+CHATBOT_TOP_K = int(os.environ.get('CHATBOT_TOP_K', '3'))
+CHATBOT_MAX_CONTEXT_CHUNKS = int(
+    os.environ.get('CHATBOT_MAX_CONTEXT_CHUNKS', str(CHATBOT_TOP_K))
+)
+CHATBOT_CONTEXT_CHARS_PER_CHUNK = int(
+    os.environ.get('CHATBOT_CONTEXT_CHARS_PER_CHUNK', '700')
+)
+CHATBOT_MAX_TOKENS = int(os.environ.get('CHATBOT_MAX_TOKENS', '384'))
+CHATBOT_MAX_QUERY_CHARS = int(os.environ.get('CHATBOT_MAX_QUERY_CHARS', '1000'))
+CHATBOT_MAX_TTS_CHARS = int(os.environ.get('CHATBOT_MAX_TTS_CHARS', '500'))
+CHATBOT_EMBEDDINGS_REMOTE_FIRST = env_bool('CHATBOT_EMBEDDINGS_REMOTE_FIRST', default=True)
+CHATBOT_REMOTE_FAILURE_COOLDOWN = int(
+    os.environ.get('CHATBOT_REMOTE_FAILURE_COOLDOWN', '60')
+)
+CHATBOT_WARMUP_ENABLED = env_bool('CHATBOT_WARMUP_ENABLED', default=not RUNNING_TESTS)
+CHATBOT_TRANSLATION_CACHE_TTL = int(
+    os.environ.get('CHATBOT_TRANSLATION_CACHE_TTL', '86400')
+)
+CHATBOT_TTS_CACHE_TTL = int(os.environ.get('CHATBOT_TTS_CACHE_TTL', '86400'))
 
 
 # Email

@@ -2,7 +2,11 @@ from django import forms
 from django.conf import settings
 
 from courses.models import Course
-from utils.upload_validators import validate_uploaded_file
+from utils.upload_validators import (
+    validate_study_material_signature,
+    validate_uploaded_file,
+    validate_video_signature,
+)
 from users.models import User
 
 from .models import Video
@@ -39,6 +43,7 @@ class VideoUploadForm(forms.ModelForm):
             allowed_content_types={'video/*', 'application/octet-stream'},
             max_bytes=settings.MAX_VIDEO_UPLOAD_BYTES,
             label='Video file',
+            signature_validator=validate_video_signature,
         )
 
 
@@ -89,7 +94,14 @@ class StudyMaterialUploadForm(forms.Form):
             },
             max_bytes=settings.MAX_STUDY_MATERIAL_BYTES,
             label='Study material file',
+            signature_validator=validate_study_material_signature,
         )
+
+    def clean_english_content(self):
+        return (self.cleaned_data.get('english_content') or '').strip()
+
+    def clean_malayalam_content(self):
+        return (self.cleaned_data.get('malayalam_content') or '').strip()
 
     def clean(self):
         cleaned = super().clean()

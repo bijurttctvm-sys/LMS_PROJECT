@@ -5,7 +5,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <div>
     <h2>Bulk Review Questions</h2>
-    <p class="text-muted mb-0">{{ video.title }} &middot; {{ video.course.title }} &middot; {{ total }} pending</p>
+    <p class="text-muted mb-0">{{ video.title }} &middot; {{ video.course.title }} &middot; {{ total }} pending &middot; {{ approved_count }} / {{ quiz_target_count }} approved</p>
   </div>
   <a href="{% url 'quiz-draft-list' %}" class="btn btn-outline-secondary btn-sm">Back to Drafts</a>
 </div>
@@ -40,7 +40,7 @@
       <div>
         <button type="submit" name="action" value="reject_all" class="btn btn-danger btn-sm"
                 onclick="return confirm('Reject all pending questions on this page?')">
-          Confirm Reject All
+          Confirm Reject And Regenerate
         </button>
       </div>
     </div>

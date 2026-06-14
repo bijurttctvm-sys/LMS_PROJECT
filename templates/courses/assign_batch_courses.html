@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Assign Courses to Batch — LMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-1"><i class="bi bi-journal-check me-2 text-primary"></i>Assign Courses to Batch</h5>
+        <p class="text-muted mb-4" style="font-size:.875rem;">Batch: <strong>{{ batch.name }}</strong></p>
+
+        <form method="post">
+          {% csrf_token %}
+          <div class="border rounded p-3" style="max-height: 420px; overflow-y: auto;">
+            {% for course in courses %}
+            <div class="form-check py-2 border-bottom">
+              <input class="form-check-input" type="checkbox" name="course_ids" value="{{ course.id }}"
+                     id="course_{{ course.id }}" {% if course.id in assigned_ids %}checked disabled{% endif %}>
+              <label class="form-check-label w-100" for="course_{{ course.id }}">
+                <span class="fw-semibold">{{ course.title }}</span>
+                {% if course.instructor %}
+                  <span class="text-muted">- {{ course.instructor.get_full_name|default:course.instructor.username }}</span>
+                {% endif %}
+                {% if course.id in assigned_ids %}
+                  <span class="badge bg-secondary ms-2">Already assigned</span>
+                {% endif %}
+              </label>
+            </div>
+            {% empty %}
+            <p class="text-muted mb-0">No active courses available.</p>
+            {% endfor %}
+          </div>
+
+          <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-save me-1"></i>Save Course Assignments
+            </button>
+            <a href="{% url 'batch-list' %}?manage=assign-courses" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

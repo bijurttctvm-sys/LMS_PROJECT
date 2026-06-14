@@ -19,6 +19,7 @@ def request_session(request):
     from courses.models import Enrollment
 
     eligible, next_eligible_date, active_session = DoubtSession.is_eligible(request.user)
+    max_sessions_per_course = DoubtSession.MAX_SESSIONS_PER_COURSE
 
     if request.method == 'POST':
         if not eligible:
@@ -43,6 +44,15 @@ def request_session(request):
             messages.error(request, 'This course has no assigned trainer yet.')
             return redirect('request-session')
 
+        sessions_booked = DoubtSession.course_session_count(request.user, course)
+        if sessions_booked >= max_sessions_per_course:
+            messages.error(
+                request,
+                f'You have already used the maximum {max_sessions_per_course} '
+                f'interactive sessions allowed for {course.title}.',
+            )
+            return redirect('request-session')
+
         DoubtSession.objects.create(
             student         = request.user,
             instructor      = course.instructor,
@@ -50,9 +60,14 @@ def request_session(request):
             request_message = message,
             status          = DoubtSession.Status.REQUESTED,
         )
+        sessions_used = sessions_booked + 1
+        sessions_remaining = max(0, max_sessions_per_course - sessions_used)
         messages.success(
             request,
-            'Interactive session request submitted. Your trainer will propose time slots soon.'
+            f'Interactive session request submitted for {course.title}. '
+            f'Interactive requests used: {sessions_used} of {max_sessions_per_course}. '
+            f'Balance available: {sessions_remaining}. '
+            'Your trainer will propose time slots soon.'
         )
         return redirect('my-sessions')
 
@@ -62,11 +77,27 @@ def request_session(request):
         .select_related('course', 'course__instructor')
         .order_by('course__title')
     )
+    course_session_counts = DoubtSession.course_session_counts(request.user)
+    has_requestable_enrollments = False
+    for enrollment in enrollments:
+        sessions_booked = course_session_counts.get(enrollment.course_id, 0)
+        enrollment.sessions_booked = sessions_booked
+        enrollment.session_limit_reached = sessions_booked >= max_sessions_per_course
+        enrollment.has_trainer = bool(enrollment.course.instructor)
+        enrollment.can_request_session = (
+            enrollment.has_trainer and not enrollment.session_limit_reached
+        )
+        has_requestable_enrollments = (
+            has_requestable_enrollments or enrollment.can_request_session
+        )
+
     return render(request, 'doubt_sessions/request_session.html', {
         'eligible':           eligible,
         'next_eligible_date': next_eligible_date,
         'active_session':     active_session,
         'enrollments':        enrollments,
+        'has_requestable_enrollments': has_requestable_enrollments,
+        'max_sessions_per_course': max_sessions_per_course,
     })
 
 
@@ -131,6 +162,7 @@ def choose_slot(request, session_id):
 @role_required(User.Role.STUDENT, message='Trainee access required.')
 def my_sessions(request):
     """Student: full session history with pending slot-choice alerts."""
+    max_sessions_per_course = DoubtSession.MAX_SESSIONS_PER_COURSE
     choose_sessions = []
     if request.user.role == User.Role.STUDENT:
         choose_sessions = list(
@@ -140,16 +172,41 @@ def my_sessions(request):
             .select_related('instructor', 'course')
         )
 
-    sessions = (
+    sessions = list(
         DoubtSession.objects
         .filter(student=request.user)
         .select_related('instructor', 'slot', 'course')
         .order_by('-created_at')
     )
+    course_session_counts = DoubtSession.course_session_counts(request.user)
+    course_usage_summaries = []
+    seen_course_ids = set()
+
+    for session in choose_sessions + sessions:
+        if session.course_id:
+            session.course_sessions_used = course_session_counts.get(session.course_id, 0)
+            session.course_sessions_remaining = max(
+                0,
+                max_sessions_per_course - session.course_sessions_used,
+            )
+
+    for session in sessions:
+        if not session.course_id or session.course_id in seen_course_ids:
+            continue
+        seen_course_ids.add(session.course_id)
+        used = course_session_counts.get(session.course_id, 0)
+        course_usage_summaries.append({
+            'course': session.course,
+            'used': used,
+            'remaining': max(0, max_sessions_per_course - used),
+        })
+
     return render(request, 'doubt_sessions/my_sessions.html', {
-        'sessions':        sessions,
-        'choose_sessions': choose_sessions,
-        'now':             timezone.now(),
+        'sessions':                 sessions,
+        'choose_sessions':          choose_sessions,
+        'course_usage_summaries':   course_usage_summaries,
+        'max_sessions_per_course':  max_sessions_per_course,
+        'now':                      timezone.now(),
     })
 
 

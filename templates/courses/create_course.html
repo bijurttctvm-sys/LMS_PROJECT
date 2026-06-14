@@ -1,10 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Create Course — LMS{% endblock %}
+{% block title %}{{ page_heading|default:"Create Course" }} - LMS{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-6">
+<div class="row justify-content-center g-4">
+  <div class="{% if course and user.role == 'admin' %}col-lg-7{% else %}col-md-6{% endif %}">
     <div class="card p-4">
-      <h3 class="mb-3">Create Course</h3>
+      <h3 class="mb-3">{{ page_heading|default:"Create Course" }}</h3>
+      {% if course and user.role == 'admin' %}
+      <p class="text-muted mb-4" style="font-size:.875rem;">
+        Update the course details here. Use the trainer field below to reassign the trainer, or use the quick actions alongside this form.
+      </p>
+      {% endif %}
       <form method="post">
         {% csrf_token %}
         {% for field in form %}
@@ -12,36 +17,92 @@
           <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
           {% if field.field.widget.input_type == 'checkbox' %}
             <div class="form-check">
-              <input type="checkbox" name="{{ field.html_name }}" id="{{ field.id_for_label }}"
-                     class="form-check-input {% if field.errors %}is-invalid{% endif %}"
-                     {% if field.value %}checked{% endif %}>
+              <input
+                type="checkbox"
+                name="{{ field.html_name }}"
+                id="{{ field.id_for_label }}"
+                class="form-check-input {% if field.errors %}is-invalid{% endif %}"
+                {% if field.value %}checked{% endif %}
+              >
             </div>
           {% elif field.field.widget.input_type == 'select' %}
-            <select name="{{ field.html_name }}" id="{{ field.id_for_label }}"
-                    class="form-select {% if field.errors %}is-invalid{% endif %}">
+            <select
+              name="{{ field.html_name }}"
+              id="{{ field.id_for_label }}"
+              class="form-select {% if field.errors %}is-invalid{% endif %}"
+            >
               {% for val, label in field.field.choices %}
                 <option value="{{ val }}" {% if field.value|stringformat:'s' == val|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
           {% elif field.field.widget.input_type == 'textarea' %}
-            <textarea name="{{ field.html_name }}" id="{{ field.id_for_label }}"
-                      class="form-control {% if field.errors %}is-invalid{% endif %}"
-                      rows="3">{{ field.value|default:'' }}</textarea>
+            <textarea
+              name="{{ field.html_name }}"
+              id="{{ field.id_for_label }}"
+              class="form-control {% if field.errors %}is-invalid{% endif %}"
+              rows="3"
+            >{{ field.value|default:'' }}</textarea>
           {% else %}
-            <input type="{{ field.field.widget.input_type }}"
-                   name="{{ field.html_name }}" id="{{ field.id_for_label }}"
-                   value="{{ field.value|default:'' }}"
-                   class="form-control {% if field.errors %}is-invalid{% endif %}">
+            <input
+              type="{{ field.field.widget.input_type }}"
+              name="{{ field.html_name }}"
+              id="{{ field.id_for_label }}"
+              value="{{ field.value|default:'' }}"
+              class="form-control {% if field.errors %}is-invalid{% endif %}"
+            >
           {% endif %}
           {% for err in field.errors %}
             <div class="invalid-feedback d-block">{{ err }}</div>
           {% endfor %}
         </div>
         {% endfor %}
-        <button type="submit" class="btn btn-primary">Create Course</button>
+        <button type="submit" class="btn btn-primary">{{ submit_label|default:"Create Course" }}</button>
         <a href="{% url 'course-list' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
       </form>
     </div>
   </div>
+
+  {% if course and user.role == 'admin' %}
+  <div class="col-lg-5">
+    <div class="card border-warning-subtle mb-3">
+      <div class="card-body">
+        <h5 class="mb-3">Admin Actions</h5>
+        <div class="small text-muted mb-3">
+          Course: <strong>{{ course.title }}</strong>
+          {% if course.instructor %}
+            &middot; Trainer: <strong>{{ course.instructor.get_full_name|default:course.instructor.username }}</strong>
+          {% else %}
+            &middot; <span class="text-danger">No trainer assigned</span>
+          {% endif %}
+        </div>
+        <div class="d-grid gap-2">
+          <a href="{% url 'assign-instructor' course.id %}" class="btn btn-outline-warning">
+            <i class="bi bi-person-badge me-1"></i>Reassign Trainer
+          </a>
+          <a href="{% url 'delete-course-content' course.id %}" class="btn btn-outline-danger">
+            <i class="bi bi-folder-x me-1"></i>Delete Content
+          </a>
+          <a href="{% url 'delete-course' course.id %}" class="btn btn-danger">
+            <i class="bi bi-trash3 me-1"></i>Delete Course
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h6 class="text-uppercase text-muted mb-3" style="font-size:.75rem;">Impact Summary</h6>
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Study material items</span>
+          <strong>{{ video_count }}</strong>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Active enrollments</span>
+          <strong>{{ enrollment_count }}</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

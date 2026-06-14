@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}{{ config.page_title }} — LMS{% endblock %}
+{% block page_title %}{{ config.page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-hero mb-4">
+  <div class="row g-4 align-items-end">
+    <div class="col-lg-8">
+      <span class="hero-kicker"><i class="bi bi-people-fill"></i> {{ config.kicker }}</span>
+      <h1 class="hero-title">{{ config.card_title }}</h1>
+      <p class="hero-copy">
+        Add, activate, deactivate, and safely remove {% if managed_role == 'student' %}trainees{% else %}trainers{% endif %} while keeping the linked LMS records protected.
+      </p>
+      <div class="hero-actions">
+        <a href="{{ create_user_url }}" class="btn btn-light btn-sm">
+          <i class="bi bi-person-plus me-1"></i>{{ config.create_heading }}
+        </a>
+        <a href="{% url 'admin-dashboard' %}" class="btn btn-outline-light btn-sm">
+          <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+        </a>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="hero-metrics">
+        <div class="hero-metric">
+          <div class="hero-metric-value">{{ stats_total }}</div>
+          <div class="hero-metric-label">Total {% if managed_role == 'student' %}Trainees{% else %}Trainers{% endif %}</div>
+        </div>
+        <div class="hero-metric">
+          <div class="hero-metric-value">{{ stats_active }}</div>
+          <div class="hero-metric-label">Active Accounts</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="mini-stat h-100">
+      <div class="mini-stat-value text-success">{{ stats_active }}</div>
+      <div class="mini-stat-label">Active</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="mini-stat h-100">
+      <div class="mini-stat-value text-secondary">{{ stats_inactive }}</div>
+      <div class="mini-stat-label">Inactive</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="mini-stat h-100">
+      <div class="mini-stat-value text-primary">{{ stats_total }}</div>
+      <div class="mini-stat-label">Managed Accounts</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-card">
+  <div class="section-card-header">
+    <div>
+      <div class="section-kicker"><i class="bi bi-sliders"></i> Directory controls</div>
+      <h2 class="section-title">{{ config.card_title }}</h2>
+    </div>
+  </div>
+
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-md-6">
+      <input
+        type="text"
+        name="q"
+        value="{{ search_query }}"
+        class="form-control"
+        placeholder="Search username, email, or name...">
+    </div>
+    <div class="col-md-3">
+      <select name="status" class="form-select">
+        <option value="" {% if not status_filter %}selected{% endif %}>All statuses</option>
+        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active only</option>
+        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive only</option>
+      </select>
+    </div>
+    <div class="col-md-3 d-flex gap-2">
+      <button type="submit" class="btn btn-primary w-100">
+        <i class="bi bi-search me-1"></i>Filter
+      </button>
+      <a href="{% url 'manage-users' managed_role %}" class="btn btn-outline-secondary w-100">Reset</a>
+    </div>
+  </form>
+
+  {% if managed_users %}
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>User</th>
+          <th>Contact</th>
+          <th>Linked Records</th>
+          <th>Status</th>
+          <th>Joined</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for managed_user in managed_users %}
+        <tr>
+          <td>
+            <div class="fw-semibold">{{ managed_user.get_full_name|default:managed_user.username }}</div>
+            <div class="text-muted small">@{{ managed_user.username }}</div>
+          </td>
+          <td class="small text-muted">
+            {{ managed_user.email|default:"—" }}
+          </td>
+          <td class="small">
+            <div>{{ managed_user.active_course_count }} active course{{ managed_user.active_course_count|pluralize }}</div>
+            {% if managed_role == 'student' %}
+            <div class="text-muted">{{ managed_user.active_batch_count }} active batch{{ managed_user.active_batch_count|pluralize }}</div>
+            {% else %}
+            <div class="text-muted">{{ managed_user.active_batch_count }} scheduled slot{{ managed_user.active_batch_count|pluralize }}</div>
+            {% endif %}
+          </td>
+          <td>
+            {% if managed_user.is_active %}
+            <span class="badge bg-success-subtle text-success border border-success-subtle">Active</span>
+            {% else %}
+            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Inactive</span>
+            {% endif %}
+          </td>
+          <td class="small text-muted">{{ managed_user.date_joined|date:"M j, Y" }}</td>
+          <td class="text-end">
+            <div class="d-flex justify-content-end gap-2 flex-wrap">
+              <a href="{% url 'admin:users_user_change' managed_user.pk %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-pencil me-1"></i>Edit
+              </a>
+              <form method="post" action="{% url 'toggle-user-active' managed_user.pk %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="btn {% if managed_user.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %} btn-sm">
+                  <i class="bi {% if managed_user.is_active %}bi-pause-circle{% else %}bi-check-circle{% endif %} me-1"></i>
+                  {% if managed_user.is_active %}
+                    {{ config.toggle_deactivate }}
+                  {% else %}
+                    {{ config.toggle_activate }}
+                  {% endif %}
+                </button>
+              </form>
+              <form method="post" action="{% url 'delete-user' managed_user.pk %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button
+                  type="submit"
+                  class="btn btn-outline-danger btn-sm"
+                  onclick="return confirm('Remove {{ managed_user.username }}? If related records exist, the account will be deactivated instead of permanently deleted.');">
+                  <i class="bi bi-trash me-1"></i>{{ config.delete_label }}
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert alert-info mb-0">{{ config.empty_message }}</div>
+  {% endif %}
+</div>
+{% endblock %}

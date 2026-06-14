@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Batch Reports — LMS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2 class="mb-1">Batch Reports</h2>
+    {% if admin_manage_action == 'assign-students' %}
+      <p class="text-muted mb-0">Select a batch to add trainees.</p>
+    {% elif admin_manage_action == 'assign-courses' %}
+      <p class="text-muted mb-0">Select a batch to assign courses.</p>
+    {% else %}
+      <p class="text-muted mb-0">A concise summary of student batches.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if batches %}
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Batch Name</th>
+            <th class="text-center">Trainees</th>
+            <th class="text-center">Courses</th>
+            {% if admin_manage_action %}
+              <th class="text-end">Action</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for batch in batches %}
+          <tr>
+            <td class="fw-semibold">{{ batch.name }}</td>
+            <td class="text-center">{{ batch.trainee_count }}</td>
+            <td class="text-center">{{ batch.course_count }}</td>
+            {% if admin_manage_action %}
+              <td class="text-end">
+                {% if admin_manage_action == 'assign-students' %}
+                  <a href="{% url 'assign-students-to-batch' batch.id %}" class="btn btn-outline-success btn-sm">Add Trainees</a>
+                {% elif admin_manage_action == 'assign-courses' %}
+                  <a href="{% url 'assign-courses-to-batch' batch.id %}" class="btn btn-outline-primary btn-sm">Assign Courses</a>
+                {% endif %}
+              </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% else %}
+  <div class="alert alert-info">No batches available yet.</div>
+{% endif %}
+{% endblock %}

@@ -3,6 +3,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from courses.models import Course, Enrollment
+
 from .forms import ProfileForm
 
 
@@ -184,3 +186,74 @@ class LoginRateLimitTests(TestCase):
             {'username': 'locked_user', 'password': 'testpass123'},
         )
         self.assertContains(blocked_response, 'Too many failed login attempts')
+
+
+class AdminUserManagementTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='admin_manager',
+            password='AdminPass123!',
+            role=User.Role.ADMIN,
+        )
+        self.trainer = User.objects.create_user(
+            username='trainer_manager',
+            password='TrainerPass123!',
+            role=User.Role.INSTRUCTOR,
+            email='trainer@example.com',
+        )
+        self.student = User.objects.create_user(
+            username='student_manager',
+            password='StudentPass123!',
+            role=User.Role.STUDENT,
+            email='student@example.com',
+        )
+        self.client.force_login(self.admin)
+
+    def test_admin_can_open_trainee_management_page(self):
+        response = self.client.get(reverse('manage-users', args=[User.Role.STUDENT]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Manage Trainees')
+        self.assertContains(response, 'student_manager')
+        self.assertNotContains(response, 'trainer_manager')
+
+    def test_delete_student_with_related_records_deactivates_instead_of_deleting(self):
+        course = Course.objects.create(
+            title='Protected Student Course',
+            instructor=self.trainer,
+            is_active=True,
+        )
+        Enrollment.objects.create(
+            student=self.student,
+            course=course,
+            is_active=True,
+        )
+
+        response = self.client.post(
+            reverse('delete-user', args=[self.student.pk]),
+            {'next': reverse('manage-users', args=[User.Role.STUDENT])},
+        )
+
+        self.assertRedirects(response, reverse('manage-users', args=[User.Role.STUDENT]))
+        self.student.refresh_from_db()
+        self.assertFalse(self.student.is_active)
+        self.assertTrue(User.objects.filter(pk=self.student.pk).exists())
+
+    def test_delete_trainer_without_related_records_removes_account(self):
+        response = self.client.post(
+            reverse('delete-user', args=[self.trainer.pk]),
+            {'next': reverse('manage-users', args=[User.Role.INSTRUCTOR])},
+        )
+
+        self.assertRedirects(response, reverse('manage-users', args=[User.Role.INSTRUCTOR]))
+        self.assertFalse(User.objects.filter(pk=self.trainer.pk).exists())
+
+    def test_toggle_user_active_view_updates_status(self):
+        response = self.client.post(
+            reverse('toggle-user-active', args=[self.trainer.pk]),
+            {'next': reverse('manage-users', args=[User.Role.INSTRUCTOR])},
+        )
+
+        self.assertRedirects(response, reverse('manage-users', args=[User.Role.INSTRUCTOR]))
+        self.trainer.refresh_from_db()
+        self.assertFalse(self.trainer.is_active)

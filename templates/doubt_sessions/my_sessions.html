@@ -13,6 +13,29 @@
   </a>
 </div>
 
+{% if course_usage_summaries %}
+<div class="row g-3 mb-3">
+  {% for usage in course_usage_summaries %}
+  <div class="col-md-6 col-xl-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase fw-semibold mb-2">Session Summary</div>
+        <h3 class="h6 mb-3">{{ usage.course.title }}</h3>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="text-muted small">Interactive requests used</span>
+          <span class="fw-semibold">{{ usage.used }} / {{ max_sessions_per_course }}</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="text-muted small">Balance available</span>
+          <span class="fw-semibold text-primary">{{ usage.remaining }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if choose_sessions %}
 <div class="alert alert-info d-flex align-items-start gap-3 mb-3" role="alert">
   <i class="bi bi-bell-fill flex-shrink-0 mt-1"></i>
@@ -54,6 +77,13 @@
           {% if s.request_message %}
           <p class="text-muted small mb-1">
             <i class="bi bi-chat-text me-1"></i>{{ s.request_message|truncatechars:80 }}
+          </p>
+          {% endif %}
+          {% if s.course_id %}
+          <p class="text-muted small mb-1">
+            <i class="bi bi-bar-chart-line me-1"></i>
+            Interactive requests used: {{ s.course_sessions_used }} / {{ max_sessions_per_course }}
+            &middot; Balance available: {{ s.course_sessions_remaining }}
           </p>
           {% endif %}
           <p class="text-muted small mb-1">

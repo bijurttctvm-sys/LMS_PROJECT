@@ -248,9 +248,15 @@
           <div class="text-muted small">{{ pending_drafts_count }} pending, {{ approved_drafts_count }} approved for publish</div>
         </div>
       </div>
+      {% if pending_drafts_count and first_pending_video_id %}
+      <a href="{% url 'review-pending-quiz-drafts' %}" class="btn btn-warning btn-sm mt-3 w-100">
+        <i class="bi bi-patch-check me-1"></i>Approve Pending Quiz Questions
+      </a>
+      {% else %}
       <a href="{% url 'quiz-draft-list' %}" class="btn btn-warning btn-sm mt-3 w-100">
         <i class="bi bi-patch-check me-1"></i>Open Quiz Drafts
       </a>
+      {% endif %}
     </div>
     {% endif %}
 

@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Count
 from django.utils import timezone
 
 
@@ -24,6 +25,8 @@ class InstructorSlot(models.Model):
 
 
 class DoubtSession(models.Model):
+    MAX_SESSIONS_PER_COURSE = 3
+
     class Status(models.TextChoices):
         REQUESTED = 'requested', 'Requested'
         SELECTED  = 'selected',  'Slots Proposed'
@@ -73,6 +76,26 @@ class DoubtSession(models.Model):
 
     def __str__(self):
         return f"{self.student.username} w/ {self.instructor.username} [{self.status}]"
+
+    @classmethod
+    def course_session_count(cls, student, course):
+        return (
+            cls.objects
+            .filter(student=student, course=course)
+            .exclude(status=cls.Status.CANCELLED)
+            .count()
+        )
+
+    @classmethod
+    def course_session_counts(cls, student):
+        rows = (
+            cls.objects
+            .filter(student=student, course__isnull=False)
+            .exclude(status=cls.Status.CANCELLED)
+            .values('course_id')
+            .annotate(total=Count('id'))
+        )
+        return {row['course_id']: row['total'] for row in rows}
 
     @classmethod
     def is_eligible(cls, student):

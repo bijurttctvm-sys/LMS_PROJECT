@@ -4,6 +4,8 @@ from . import views
 
 urlpatterns = [
     # Admin
+    path('drafts/pending/review/',        views.review_pending_quiz_drafts, name='review-pending-quiz-drafts'),
+    path('workflow/<int:video_id>/',      views.continue_quiz_workflow, name='continue-quiz-workflow'),
     path('drafts/',                       views.quiz_draft_list,   name='quiz-draft-list'),
     path('drafts/<int:draft_id>/review/', views.review_quiz_draft, name='review-quiz-draft'),
     path('drafts/video/<int:video_id>/bulk-review/', views.bulk_review_quiz_drafts, name='bulk-review-quiz-drafts'),

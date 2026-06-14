@@ -4,30 +4,16 @@
 <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
   <div>
     <h2>{{ course.title }}</h2>
+    {% if user.role != "admin" %}
     <p class="text-muted">
       {{ course.get_language_display }}
       {% if course.instructor %} &middot; Instructor: <strong>{{ course.instructor.username }}</strong>{% else %} &middot; <span class="text-danger">No instructor assigned</span>{% endif %}
     </p>
+    {% endif %}
   </div>
 
   <div class="d-flex gap-2 flex-wrap">
-    {% if user.role == "admin" %}
-    <a href="{% url "assign-instructor" course.id %}" class="btn btn-outline-warning btn-sm">
-      <i class="bi bi-person-badge me-1"></i>Assign Instructor
-    </a>
-    <a href="{% url "enroll-student" course.id %}" class="btn btn-outline-success btn-sm">
-      <i class="bi bi-person-plus me-1"></i>Assign Student
-    </a>
-    <a href="{% url "upload-video" %}?course={{ course.id }}" class="btn btn-outline-primary btn-sm">
-      <i class="bi bi-cloud-upload me-1"></i>Upload Video
-    </a>
-    <a href="{% url "delete-course-content" course.id %}" class="btn btn-outline-danger btn-sm">
-      <i class="bi bi-trash3 me-1"></i>Delete Content
-    </a>
-    <a href="{% url "delete-course" course.id %}" class="btn btn-danger btn-sm">
-      <i class="bi bi-trash-fill me-1"></i>Delete Course
-    </a>
-    {% elif user.role == "instructor" %}
+    {% if user.role == "instructor" %}
     {% if not course_locked %}
     <a href="{% url "upload-video" %}?course={{ course.id }}" class="btn btn-primary btn-sm">
       <i class="bi bi-cloud-upload me-1"></i>Upload Video
@@ -41,22 +27,53 @@
   </div>
 </div>
 
-{% if course.description %}
+{% if course.description and user.role != "admin" %}
   <p>{{ course.description }}</p>
 {% endif %}
 
-<!-- Instructor course-locked notice -->
-{% if user.role == "instructor" and course_locked %}
-<div class="alert alert-info py-2 d-flex align-items-center gap-2 mb-3">
-  <i class="bi bi-lock-fill flex-shrink-0"></i>
-  <span style="font-size:.875rem;">
-    This course has 1 video and 1 study material uploaded. Content is now locked — contact an admin to make changes.
-  </span>
+{% if user.role == "admin" %}
+<div class="card mt-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+      <h5 class="mb-0">Course Summary</h5>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'edit-course' course.id %}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-pencil-square me-1"></i>Modify Course
+        </a>
+        <a href="{% url 'assign-instructor' course.id %}" class="btn btn-outline-warning btn-sm">
+          <i class="bi bi-person-badge me-1"></i>Reassign Trainer
+        </a>
+        <a href="{% url 'delete-course-content' course.id %}" class="btn btn-outline-danger btn-sm">
+          <i class="bi bi-folder-x me-1"></i>Delete Content
+        </a>
+        <a href="{% url 'delete-course' course.id %}" class="btn btn-danger btn-sm">
+          <i class="bi bi-trash3 me-1"></i>Delete Course
+        </a>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="text-muted small">Course Name</div>
+        <div class="fw-semibold">{{ course.title }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="text-muted small">Trainer</div>
+        <div class="fw-semibold">
+          {% if course.instructor %}
+            {{ course.instructor.get_full_name|default:course.instructor.username }}
+          {% else %}
+            Not assigned
+          {% endif %}
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="text-muted small">Trainees Enrolled</div>
+        <div class="fw-semibold">{{ trainee_count }}</div>
+      </div>
+    </div>
+  </div>
 </div>
-{% endif %}
-
-<!-- Enrollment status banner for students -->
-{% if user.role == "student" %}
+{% elif user.role == "student" %}
   {% if enrolled %}
   <div class="alert alert-success py-2 d-flex align-items-center gap-2">
     <i class="bi bi-patch-check-fill"></i>
@@ -70,7 +87,18 @@
   {% endif %}
 {% endif %}
 
+<!-- Instructor course-locked notice -->
+{% if user.role == "instructor" and course_locked %}
+<div class="alert alert-info py-2 d-flex align-items-center gap-2 mb-3">
+  <i class="bi bi-lock-fill flex-shrink-0"></i>
+  <span style="font-size:.875rem;">
+    This course has 1 video and 1 study material uploaded. Content is now locked — contact an admin to make changes.
+  </span>
+</div>
+{% endif %}
+
 <!-- Video / Study Material list -->
+{% if user.role != "admin" %}
 <h4 class="mt-4">
   <i class="bi bi-collection-play me-1"></i>Study Material
   <span class="text-muted fw-normal" style="font-size:.85rem;">({{ video_count }})</span>
@@ -112,6 +140,7 @@
   </div>
 {% else %}
   <p class="text-muted mt-2">No study material uploaded yet.</p>
+{% endif %}
 {% endif %}
 
 {% endblock %}

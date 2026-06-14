@@ -12,8 +12,14 @@
         Monitor users, courses, content activity, and publishing queues from one professional administrative workspace.
       </p>
       <div class="hero-actions">
-        <a href="{% url 'create-user' %}" class="btn btn-light btn-sm">
-          <i class="bi bi-person-plus me-1"></i>Create User
+        <a href="{% url 'manage-users' 'student' %}" class="btn btn-light btn-sm">
+          <i class="bi bi-people me-1"></i>Manage Trainees
+        </a>
+        <a href="{% url 'manage-users' 'instructor' %}" class="btn btn-outline-light btn-sm">
+          <i class="bi bi-person-workspace me-1"></i>Manage Trainers
+        </a>
+        <a href="{% url 'course-list' %}?manage=edit" class="btn btn-outline-light btn-sm">
+          <i class="bi bi-journal-bookmark me-1"></i>Course Management
         </a>
         <a href="{% url 'admin:index' %}" class="btn btn-outline-light btn-sm">
           <i class="bi bi-shield-lock me-1"></i>Django Admin
@@ -134,8 +140,11 @@
           <h2 class="section-title">User Management</h2>
         </div>
         <div class="d-flex gap-2">
-          <a href="{% url 'create-user' %}" class="btn btn-success btn-sm">
-            <i class="bi bi-person-plus me-1"></i>Create User
+          <a href="{% url 'manage-users' 'student' %}" class="btn btn-success btn-sm">
+            <i class="bi bi-person-plus me-1"></i>Manage Trainees
+          </a>
+          <a href="{% url 'manage-users' 'instructor' %}" class="btn btn-outline-warning btn-sm">
+            <i class="bi bi-person-workspace me-1"></i>Manage Trainers
           </a>
           <a href="{% url 'admin:users_user_changelist' %}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-shield-lock me-1"></i>Full Manager
@@ -213,14 +222,17 @@
       <div class="section-kicker"><i class="bi bi-lightning"></i> Quick actions</div>
       <h2 class="section-title mb-3">Administrator Tools</h2>
       <div class="d-grid gap-2">
-        <a href="{% url 'create-user' %}" class="btn btn-outline-success btn-sm text-start">
-          <i class="bi bi-person-plus me-2"></i>Create User
+        <a href="{% url 'manage-users' 'student' %}" class="btn btn-outline-success btn-sm text-start">
+          <i class="bi bi-people me-2"></i>Manage Trainees
+        </a>
+        <a href="{% url 'manage-users' 'instructor' %}" class="btn btn-outline-warning btn-sm text-start">
+          <i class="bi bi-person-workspace me-2"></i>Manage Trainers
         </a>
         <a href="{% url 'create-course' %}" class="btn btn-outline-primary btn-sm text-start">
           <i class="bi bi-plus-circle me-2"></i>Create New Course
         </a>
-        <a href="{% url 'course-list' %}" class="btn btn-outline-primary btn-sm text-start">
-          <i class="bi bi-grid me-2"></i>All Courses
+        <a href="{% url 'course-list' %}?manage=edit" class="btn btn-outline-primary btn-sm text-start">
+          <i class="bi bi-grid me-2"></i>Course Management
         </a>
         <a href="{% url 'admin:index' %}" class="btn btn-outline-secondary btn-sm text-start">
           <i class="bi bi-shield-lock me-2"></i>Django Admin Panel

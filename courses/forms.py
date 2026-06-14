@@ -1,7 +1,7 @@
 from django import forms
 
 from users.models import User
-from .models import Course
+from .models import Batch, Course
 
 
 class CourseForm(forms.ModelForm):
@@ -18,3 +18,10 @@ class CourseForm(forms.ModelForm):
                 role=User.Role.INSTRUCTOR
             )
             self.fields['instructor'].required = False
+            self.fields['instructor'].label = 'Trainer'
+
+
+class BatchForm(forms.ModelForm):
+    class Meta:
+        model = Batch
+        fields = ('name', 'description')

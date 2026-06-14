@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}LMS{% endblock %}</title>
+  <link rel="icon" type="image/png" href="/static/branding/lms-favicon.png">
 
   <!-- Bootstrap 5 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
@@ -12,12 +13,12 @@
   <!-- Workspace typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Malayalam:wght@400;600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Malayalam:wght@400;600&display=swap">
 
   <style>
     /* ── Root variables ──────────────────────────────────────────────────────── */
     :root {
-      --sidebar-w: 264px;
+      --sidebar-w: 296px;
       --topbar-h: 72px;
       --sidebar-bg: linear-gradient(180deg, #091526 0%, #10223c 50%, #0b1728 100%);
       --sidebar-text: #9fb0cb;
@@ -77,31 +78,66 @@
     .sidebar-brand {
       display: flex;
       align-items: center;
-      gap: .8rem;
-      padding: 1.35rem 1.35rem 1.15rem;
+      gap: 12px;
+      padding: 1.1rem 1.2rem 1rem;
       text-decoration: none;
       border-bottom: 1px solid rgba(255,255,255,.09);
+      transition: background .2s ease, transform .2s ease, box-shadow .2s ease;
+    }
+    .sidebar-brand:hover {
+      background: rgba(255,255,255,.045);
+      transform: translateY(-1px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+    }
+    .sidebar-brand:focus-visible {
+      outline: 2px solid rgba(125,211,252,.9);
+      outline-offset: -2px;
     }
     .sidebar-brand .brand-icon {
-      width: 42px; height: 42px;
-      background: linear-gradient(135deg, #38bdf8, #36c2a4);
-      border-radius: 14px;
-      display: flex; align-items: center; justify-content: center;
-      color: #fff; font-size: 1rem; font-weight: 800; flex-shrink: 0;
-      box-shadow: 0 12px 30px rgba(54,194,164,.28);
+      width: 50px;
+      height: 50px;
+      border-radius: 16px;
+      display: block;
+      flex-shrink: 0;
+      object-fit: contain;
+      padding: 4px;
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      box-shadow: 0 14px 32px rgba(21,154,168,.22);
+      border: 1px solid rgba(255,255,255,.08);
     }
-    .sidebar-brand .brand-name {
+    .sidebar-brand .brand-lockup,
+    .topbar-brand-mobile .brand-lockup {
+      min-width: 0;
+      width: min(100%, 176px);
+      max-width: 176px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: .16rem;
+    }
+    .sidebar-brand .brand-title,
+    .topbar-brand-mobile .brand-title {
+      display: block;
+      min-width: 0;
+      white-space: nowrap;
+      font-family: "Inter", "Segoe UI", "Roboto", sans-serif;
+      font-size: 20px;
+      line-height: 1.04;
+      letter-spacing: -.3px;
+      font-weight: 700;
       color: #fff;
-      font-weight: 800;
-      font-size: 1.12rem;
-      letter-spacing: .02em;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      text-shadow: 0 4px 18px rgba(56,189,248,.12);
     }
     .sidebar-brand .brand-sub {
-      color: rgba(211,221,238,.78);
-      font-size: .68rem;
-      line-height: 1;
-      text-transform: uppercase;
-      letter-spacing: .14em;
+      color: rgba(255,255,255,.65);
+      font-family: "Inter", "Segoe UI", "Roboto", sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.25;
+      letter-spacing: .08px;
+      white-space: normal;
     }
 
     .sidebar-section {
@@ -207,6 +243,31 @@
     }
     .topbar-title {
       font-weight: 700; font-size: 1.02rem; color: var(--text-main);
+    }
+    .topbar-brand-mobile {
+      display: none;
+      align-items: center;
+      gap: 0;
+      text-decoration: none;
+      min-width: 0;
+      color: inherit;
+      transition: transform .2s ease, opacity .2s ease;
+    }
+    .topbar-brand-mobile:hover {
+      transform: translateY(-1px);
+      opacity: .94;
+    }
+    .topbar-brand-mobile .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: block;
+      flex-shrink: 0;
+      object-fit: contain;
+      padding: 3px;
+      background: linear-gradient(180deg, rgba(19,49,79,.08), rgba(19,49,79,.02));
+      box-shadow: 0 10px 24px rgba(21,154,168,.18);
+      border: 1px solid rgba(255,255,255,.08);
     }
     .topbar-right {
       margin-left: auto;
@@ -528,7 +589,21 @@
     .badge-status-FAILED     { background: #dc3545; color:#fff; }
 
     /* ── Responsive ──────────────────────────────────────────────────────────── */
+    @media (max-width: 1200px) and (min-width: 769px) {
+      :root {
+        --sidebar-w: 264px;
+      }
+      .sidebar-brand .brand-lockup { width: auto; max-width: 156px; }
+      .sidebar-brand .brand-title { font-size: 20px; }
+      .sidebar-brand .brand-sub {
+        display: none;
+      }
+    }
+
     @media (max-width: 768px) {
+      :root {
+        --sidebar-w: 284px;
+      }
       .lms-sidebar {
         transform: translateX(-100%);
       }
@@ -540,6 +615,15 @@
         margin-left: 0;
       }
       .topbar-toggle { display: flex; }
+      .topbar-title { display: none; }
+      .topbar-brand-mobile { display: inline-flex; }
+      .sidebar-brand {
+        gap: 0;
+        padding: 1rem 1.1rem .95rem;
+      }
+      .sidebar-brand .brand-lockup {
+        display: none;
+      }
       .lms-content { padding: 1.25rem 1rem; }
     }
 
@@ -795,11 +879,265 @@
     }
 
     /* ── No-sidebar pages (login/register) ───────────────────────────────────── */
-    .auth-page .lms-content {
+    .lms-content.auth-page {
+      min-height: calc(100vh - 140px);
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
+      padding: clamp(1.5rem, 4vw, 3rem);
+    }
+    .auth-shell {
+      width: min(1140px, 100%);
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(360px, 460px);
+      gap: clamp(1.5rem, 4vw, 3rem);
+      align-items: stretch;
+    }
+    .auth-brand-panel {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1.5rem;
+      min-height: 620px;
+      padding: clamp(1.75rem, 3vw, 2.75rem);
+      border-radius: 32px;
+      overflow: hidden;
+      color: #f8fbff;
+      background:
+        radial-gradient(circle at 20% 18%, rgba(45, 212, 216, .18), transparent 26%),
+        radial-gradient(circle at 80% 80%, rgba(244, 113, 30, .16), transparent 22%),
+        linear-gradient(160deg, #0b1d31 0%, #102b45 54%, #13314f 100%);
+      box-shadow: 0 28px 80px rgba(4, 15, 31, .24);
+      isolation: isolate;
+    }
+    .auth-brand-panel::before,
+    .auth-brand-panel::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: -1;
+    }
+    .auth-brand-panel::before {
+      inset: auto auto 8% -8%;
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(45, 212, 216, .22) 0%, rgba(45, 212, 216, 0) 70%);
+      filter: blur(10px);
+    }
+    .auth-brand-panel::after {
+      inset: 8% -10% auto auto;
+      width: 280px;
+      height: 280px;
+      background: radial-gradient(circle, rgba(255, 138, 61, .18) 0%, rgba(255, 138, 61, 0) 68%);
+      filter: blur(14px);
+    }
+    .auth-brand-copy {
+      max-width: 440px;
+      display: grid;
+      gap: .9rem;
+    }
+    .auth-brand-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: .55rem;
+      width: fit-content;
+      padding: .48rem .8rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .08);
+      border: 1px solid rgba(255, 255, 255, .12);
+      color: rgba(236, 245, 255, .86);
+      font: 600 .74rem/1 "Inter", "Segoe UI", Roboto, sans-serif;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .auth-brand-tag i {
+      color: #2dd4d8;
+      font-size: .9rem;
+    }
+    .auth-brand-title {
+      margin: 0;
+      font: 800 clamp(2rem, 4vw, 3.35rem) / 1.02 "Inter", "Segoe UI", Roboto, sans-serif;
+      letter-spacing: -.04em;
+      color: #ffffff;
+    }
+    .auth-brand-title span {
+      display: block;
+      color: rgba(224, 241, 255, .92);
+    }
+    .auth-brand-text {
+      margin: 0;
+      max-width: 34rem;
+      color: rgba(224, 236, 250, .78);
+      font: 500 1rem/1.7 "Inter", "Segoe UI", Roboto, sans-serif;
+      letter-spacing: .01em;
+    }
+    .auth-brand-points {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .8rem;
+    }
+    .auth-brand-pill {
+      padding: .65rem .95rem;
+      border-radius: 999px;
+      background: rgba(9, 21, 38, .34);
+      border: 1px solid rgba(255, 255, 255, .12);
+      color: rgba(240, 248, 255, .88);
+      font: 600 .84rem/1 "Inter", "Segoe UI", Roboto, sans-serif;
+      letter-spacing: .01em;
+    }
+    .auth-brand-art {
+      width: min(100%, 540px);
+      align-self: center;
+      padding: .95rem;
+      border-radius: 34px;
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255, 255, 255, .08);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 24px 60px rgba(3, 10, 24, .24);
+      backdrop-filter: blur(14px);
+    }
+    .auth-brand-art img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      display: block;
+      object-fit: contain;
+      border-radius: 26px;
+      box-shadow: 0 22px 44px rgba(3, 12, 26, .28);
+    }
+    .auth-form-card {
+      width: 100%;
+      background: rgba(255, 255, 255, .94);
+      border: 1px solid rgba(15, 23, 42, .08);
+      border-radius: 30px;
+      padding: clamp(1.6rem, 2.6vw, 2.45rem);
+      box-shadow: 0 24px 80px rgba(15, 23, 42, .1);
+      backdrop-filter: blur(18px);
+    }
+    .auth-form-header {
+      margin-bottom: 1.4rem;
+    }
+    .auth-form-kicker {
+      margin: 0 0 .5rem;
+      color: #0f5f73;
+      font: 700 .76rem/1 "Inter", "Segoe UI", Roboto, sans-serif;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .auth-form-title {
+      margin: 0;
+      color: #0f172a;
+      font: 800 clamp(1.8rem, 2.5vw, 2.2rem) / 1.05 "Inter", "Segoe UI", Roboto, sans-serif;
+      letter-spacing: -.04em;
+    }
+    .auth-form-subtitle {
+      margin: .75rem 0 0;
+      color: #5b6477;
+      font: 500 .98rem/1.65 "Inter", "Segoe UI", Roboto, sans-serif;
+    }
+    .auth-form-card .form-label {
+      margin-bottom: .5rem;
+      color: #1f2937;
+      font: 700 .92rem/1.2 "Inter", "Segoe UI", Roboto, sans-serif;
+    }
+    .auth-form-card .form-control {
+      min-height: 54px;
+      border-radius: 16px;
+      border: 1px solid rgba(15, 23, 42, .12);
+      background: #f8fbff;
+      color: #0f172a;
+      font-family: "Inter", "Segoe UI", Roboto, sans-serif;
+      padding: .9rem 1rem;
+      box-shadow: none;
+      transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+    }
+    .auth-form-card .form-control:focus {
+      border-color: rgba(21, 154, 168, .6);
+      background: #ffffff;
+      box-shadow: 0 0 0 .22rem rgba(45, 212, 216, .14);
+    }
+    .auth-submit-btn {
+      min-height: 54px;
+      border: none;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #159aa8 0%, #2d75d8 52%, #13314f 100%);
+      color: #ffffff;
+      font: 700 1rem/1 "Inter", "Segoe UI", Roboto, sans-serif;
+      letter-spacing: -.01em;
+      box-shadow: 0 18px 36px rgba(19, 49, 79, .18);
+      transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+    }
+    .auth-submit-btn:hover,
+    .auth-submit-btn:focus {
+      color: #ffffff;
+      filter: brightness(1.03);
+      transform: translateY(-1px);
+      box-shadow: 0 22px 40px rgba(19, 49, 79, .22);
+    }
+    .auth-form-divider {
+      margin: 1.5rem 0 1rem;
+      border-top-color: rgba(15, 23, 42, .08);
+    }
+    .auth-form-switch {
+      margin: 0;
+      text-align: center;
+      color: #5b6477;
+      font: 500 .94rem/1.5 "Inter", "Segoe UI", Roboto, sans-serif;
+    }
+    .auth-form-switch a {
+      color: #0f5f73;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .auth-form-switch a:hover {
+      color: #0b7890;
+      text-decoration: underline;
+    }
+    @media (max-width: 991.98px) {
+      .lms-content.auth-page {
+        min-height: auto;
+        padding-top: 1.5rem;
+      }
+      .auth-shell {
+        grid-template-columns: 1fr;
+      }
+      .auth-brand-panel {
+        min-height: auto;
+      }
+      .auth-brand-copy {
+        max-width: none;
+      }
+      .auth-brand-art {
+        width: min(100%, 460px);
+      }
+    }
+    @media (max-width: 575.98px) {
+      .lms-content.auth-page {
+        padding-inline: 1rem;
+      }
+      .auth-brand-panel,
+      .auth-form-card {
+        border-radius: 24px;
+      }
+      .auth-brand-panel {
+        padding: 1.35rem;
+      }
+      .auth-form-card {
+        padding: 1.35rem;
+      }
+      .auth-brand-title {
+        font-size: 1.75rem;
+      }
+      .auth-brand-text {
+        font-size: .94rem;
+      }
+      .auth-brand-points {
+        gap: .65rem;
+      }
+      .auth-brand-pill {
+        width: 100%;
+        text-align: center;
+      }
     }
   </style>
   {% block extra_head %}{% endblock %}
@@ -810,11 +1148,13 @@
 <!-- ── Sidebar ──────────────────────────────────────────────────────────────── -->
 <aside class="lms-sidebar" id="lms-sidebar">
 
-  <a href="{% url 'home' %}" class="sidebar-brand">
-    <div class="brand-icon">L</div>
-    <div>
-      <div class="brand-name">LMS</div>
-      <div class="brand-sub">{{ user.get_role_display }}</div>
+  <a href="{% url 'home' %}" class="sidebar-brand" aria-label="LMS home">
+    <img class="brand-icon"
+         src="/static/branding/lms-platform-mark.png"
+         alt="Learning Management Platform logo">
+    <div class="brand-lockup">
+      <span class="brand-title">Learning</span>
+      <span class="brand-sub">Management Platform</span>
     </div>
   </a>
 
@@ -825,14 +1165,70 @@
     <ul class="sidebar-nav">
       <li><a href="{% url 'admin-dashboard' %}"><span class="nav-icon"><i class="bi bi-speedometer2"></i></span>Dashboard</a></li>
       <li><a href="{% url 'course-list' %}"><span class="nav-icon"><i class="bi bi-journal-bookmark"></i></span>Courses</a></li>
+      <li><a href="{% url 'batch-list' %}"><span class="nav-icon"><i class="bi bi-collection"></i></span>Batch Reports</a></li>
     </ul>
   </div>
   <div class="sidebar-section">
     <span class="sidebar-label">Manage</span>
     <ul class="sidebar-nav">
       <li>
-        <a href="{% url 'create-user' %}">
-          <span class="nav-icon"><i class="bi bi-person-plus"></i></span>Create User
+        <a href="{% url 'create-course' %}">
+          <span class="nav-icon"><i class="bi bi-plus-circle"></i></span>Create New Course
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'create-user' %}?role=instructor">
+          <span class="nav-icon"><i class="bi bi-person-workspace"></i></span>Enroll Trainer
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'manage-users' 'instructor' %}">
+          <span class="nav-icon"><i class="bi bi-person-lines-fill"></i></span>Trainer Management
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'create-user' %}?role=student">
+          <span class="nav-icon"><i class="bi bi-person-plus"></i></span>Enroll Trainee
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'manage-users' 'student' %}">
+          <span class="nav-icon"><i class="bi bi-people-fill"></i></span>Trainee Management
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'course-list' %}?manage=edit">
+          <span class="nav-icon"><i class="bi bi-pencil-square"></i></span>Course Management
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'course-list' %}?manage=assign-student">
+          <span class="nav-icon"><i class="bi bi-person-check"></i></span>Assign Trainee
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'course-list' %}?manage=assign-instructor">
+          <span class="nav-icon"><i class="bi bi-person-badge"></i></span>Assign Trainer
+        </a>
+      </li>
+    </ul>
+  </div>
+  <div class="sidebar-section">
+    <span class="sidebar-label">Batch Management</span>
+    <ul class="sidebar-nav">
+      <li>
+        <a href="{% url 'create-batch' %}">
+          <span class="nav-icon"><i class="bi bi-folder-plus"></i></span>Create Batch
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'batch-list' %}?manage=assign-students">
+          <span class="nav-icon"><i class="bi bi-people"></i></span>Add Trainees to Batch
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'batch-list' %}?manage=assign-courses">
+          <span class="nav-icon"><i class="bi bi-journal-check"></i></span>Assign Courses to Batch
         </a>
       </li>
     </ul>
@@ -865,7 +1261,7 @@
   <div class="sidebar-section">
     <span class="sidebar-label">Content</span>
     <ul class="sidebar-nav">
-      <li><a href="{% url 'quiz-draft-list' %}"><span class="nav-icon"><i class="bi bi-patch-check"></i></span>Quiz Drafts</a></li>
+      <li><a href="{% url 'review-pending-quiz-drafts' %}"><span class="nav-icon"><i class="bi bi-patch-check"></i></span>Approve Quiz Questions</a></li>
       <li><a href="{% url 'profile' %}"><span class="nav-icon"><i class="bi bi-person-circle"></i></span>Profile</a></li>
       <li><a href="{% url 'change-password' %}"><span class="nav-icon"><i class="bi bi-shield-lock"></i></span>Change Password</a></li>
     </ul>
@@ -903,7 +1299,7 @@
     <form method="post" action="{% url 'logout' %}">
       {% csrf_token %}
       <button type="submit"
-              style="width:100%;background:none;border:1px solid #2e3542;border-radius:8px;color:#a9b0bb;
+              style="width:100%;background:#dc3545;border:1px solid #dc3545;border-radius:8px;color:#fff;
                      font-size:.82rem;padding:.45rem .75rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;">
         <i class="bi bi-box-arrow-left"></i> Logout
       </button>
@@ -925,7 +1321,13 @@
       <i class="bi bi-list"></i>
     </button>
 
-    <span class="topbar-title d-none d-sm-block">{% block page_title %}{% endblock %}</span>
+    <a href="{% url 'home' %}" class="topbar-brand-mobile" aria-label="LMS home">
+      <img class="brand-icon"
+           src="/static/branding/lms-platform-mark.png"
+           alt="Learning Management Platform logo">
+    </a>
+
+    <span class="topbar-title">{% block page_title %}{% endblock %}</span>
 
     <div class="topbar-right">
       <!-- Notifications bell -->
@@ -1367,6 +1769,53 @@ function chatAppend(html, cls) {
   return div;
 }
 
+async function chatRequestVoiceReply(text, language, bubble) {
+  if (!chatVoice || !bubble || !text) return;
+
+  const note = document.createElement('div');
+  note.className = 'text-muted small mt-2';
+  note.textContent = 'Preparing voice reply...';
+  bubble.appendChild(note);
+
+  try {
+    const resp = await fetch('/chatbot/tts/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': CHATBOT_CSRF,
+      },
+      body: JSON.stringify({
+        text: text,
+        language: language || chatLang,
+      }),
+    });
+    const data = await resp.json();
+
+    note.remove();
+    if (!resp.ok || !data.audio) {
+      const fallback = document.createElement('div');
+      fallback.className = 'text-muted small mt-2';
+      fallback.textContent = data.error || 'Voice reply is unavailable right now.';
+      bubble.appendChild(fallback);
+      return;
+    }
+
+    bubble.insertAdjacentHTML(
+      'beforeend',
+      `<audio class="chat-audio" controls>
+        <source src="data:audio/wav;base64,${data.audio}" type="audio/wav">
+      </audio>`
+    );
+    chatAutoPlayAudio(bubble);
+  } catch (err) {
+    note.remove();
+    const fallback = document.createElement('div');
+    fallback.className = 'text-muted small mt-2';
+    fallback.textContent = 'Voice reply could not be loaded.';
+    bubble.appendChild(fallback);
+  }
+}
+
 function chatShowTyping() {
   const msgs = document.getElementById('chat-messages');
   const div  = document.createElement('div');
@@ -1422,6 +1871,7 @@ async function chatSend() {
         course_id: courseId,
         language:  chatLang,
         voice:     chatVoice,
+        defer_voice: chatVoice,
       }),
     });
 
@@ -1445,6 +1895,8 @@ async function chatSend() {
       const bubble = chatAppend(html, 'bot');
       if (data.audio) {
         chatAutoPlayAudio(bubble);
+      } else if (data.voice_deferred && chatVoice) {
+        chatRequestVoiceReply(data.answer || '', data.language || chatLang, bubble);
       }
     }
   } catch (err) {

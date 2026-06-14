@@ -10,6 +10,7 @@
       {% if total %}
         &middot; <span class="badge bg-secondary">{{ index }} / {{ total }}</span>
       {% endif %}
+      &middot; <span class="badge bg-success">{{ approved_count }} / {{ quiz_target_count }} approved</span>
     </p>
   </div>
   <div>
@@ -95,7 +96,7 @@
           <textarea name="admin_note" class="form-control mb-2" rows="2"
                     placeholder="Explain why this question is rejected...">{{ draft.admin_note }}</textarea>
           <button type="submit" name="action" value="reject" class="btn btn-danger btn-sm">
-            Confirm Rejection
+            Confirm Rejection And Regenerate
           </button>
         </div>
       </div>

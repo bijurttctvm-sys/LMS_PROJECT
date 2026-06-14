@@ -108,20 +108,25 @@
       {{ video.get_status_display }}
     </span>
     {% if user.role == 'admin' or user.role == 'instructor' %}
-      {% if video.english_transcript and not video.quiz_drafts.count and not video.quizzes.count %}
-      <form method="post" action="{% url 'generate-quiz' video.id %}" class="d-inline">
+      {% if video.english_transcript and not has_published_quiz %}
+      <form method="post" action="{% url 'continue-quiz-workflow' video.id %}" class="d-inline">
         {% csrf_token %}
-        <button type="submit" class="btn btn-outline-warning btn-sm"
-                onclick="return confirm('Generate AI quiz draft questions for this content?')">
-          <i class="bi bi-robot me-1"></i>Generate Quiz Drafts
+        <button type="submit" class="btn btn-warning btn-sm">
+          {% if pending_draft_count %}
+          <i class="bi bi-patch-check me-1"></i>Approve Pending Quiz Questions ({{ pending_draft_count }})
+          {% elif approved_draft_count >= quiz_target_count %}
+          <i class="bi bi-upload me-1"></i>Publish Approved Quiz
+          {% elif approved_draft_count %}
+          <i class="bi bi-robot me-1"></i>Generate {{ missing_quiz_question_count }} More Quiz Question{{ missing_quiz_question_count|pluralize }}
+          {% else %}
+          <i class="bi bi-robot me-1"></i>Generate Quiz Questions
+          {% endif %}
         </button>
       </form>
       {% endif %}
-      {% if pending_draft_count or approved_draft_count %}
+      {% if approved_draft_count and not pending_draft_count %}
       <a href="{% url 'quiz-draft-list' %}" class="btn btn-warning btn-sm">
-        <i class="bi bi-patch-check me-1"></i>Quiz Drafts
-        {% if pending_draft_count %}({{ pending_draft_count }} pending{% if approved_draft_count %}, {% endif %}{% endif %}
-        {% if approved_draft_count %}{{ approved_draft_count }} approved{% endif %})
+        <i class="bi bi-patch-check me-1"></i>Open Quiz Drafts ({{ approved_draft_count }} approved)
       </a>
       {% endif %}
     {% endif %}

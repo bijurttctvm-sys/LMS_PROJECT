@@ -1,13 +1,13 @@
 ﻿{% extends "base.html" %}
-{% block title %}Create User — LMS{% endblock %}
-{% block page_title %}Create New User{% endblock %}
+{% block title %}{{ page_heading|default:"Create User" }} — LMS{% endblock %}
+{% block page_title %}{{ page_heading|default:"Create New User" }}{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-lg-6 col-md-8">
     <div class="card">
       <div class="card-body p-4">
-        <h5 class="fw-bold mb-1"><i class="bi bi-person-plus me-2 text-success"></i>Create User Account</h5>
+        <h5 class="fw-bold mb-1"><i class="bi bi-person-plus me-2 text-success"></i>{{ card_heading|default:"Create User Account" }}</h5>
         <p class="text-muted mb-4" style="font-size:.875rem;">Create an instructor or student account. The user will log in with the credentials set here.</p>
 
         <form method="post" novalidate>
@@ -65,7 +65,7 @@
             <button type="submit" class="btn btn-success">
               <i class="bi bi-person-check me-1"></i>Create User
             </button>
-            <a href="{% url 'admin-dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+            <a href="{{ cancel_url|default:'/' }}" class="btn btn-outline-secondary">Cancel</a>
           </div>
         </form>
       </div>

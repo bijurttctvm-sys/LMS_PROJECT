@@ -7,7 +7,7 @@ from django.urls import reverse
 from doubt_sessions.models import DoubtSession
 from videos.models import Video
 
-from .models import Course, Enrollment
+from .models import Batch, BatchCourse, BatchStudent, Course, Enrollment
 
 
 User = get_user_model()
@@ -136,3 +136,129 @@ class StudentCourseBrowseTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Course content is locked')
         self.assertNotContains(response, 'Locked Lesson')
+
+
+class AdminCourseManagementViewTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='course_admin',
+            password='pass123',
+            role=User.Role.ADMIN,
+        )
+        self.instructor = User.objects.create_user(
+            username='course_trainer',
+            password='pass123',
+            role=User.Role.INSTRUCTOR,
+        )
+        self.course = Course.objects.create(
+            title='Admin Managed Course',
+            instructor=self.instructor,
+            is_active=True,
+        )
+        self.video = Video.objects.create(
+            course=self.course,
+            title='Admin Lesson',
+            status=Video.Status.READY,
+            english_transcript='Admin notes',
+        )
+        self.student = User.objects.create_user(
+            username='course_student',
+            password='pass123',
+            role=User.Role.STUDENT,
+        )
+        Enrollment.objects.create(
+            student=self.student,
+            course=self.course,
+            is_active=True,
+        )
+
+    def test_admin_modify_course_page_shows_management_actions(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('edit-course', args=[self.course.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Reassign Trainer')
+        self.assertContains(response, reverse('assign-instructor', args=[self.course.id]))
+        self.assertContains(response, 'Delete Content')
+        self.assertContains(response, reverse('delete-course-content', args=[self.course.id]))
+        self.assertContains(response, 'Delete Course')
+        self.assertContains(response, reverse('delete-course', args=[self.course.id]))
+
+    def test_admin_course_detail_shows_management_actions(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('course-detail', args=[self.course.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Modify Course')
+        self.assertContains(response, 'Reassign Trainer')
+        self.assertContains(response, 'Delete Content')
+        self.assertContains(response, 'Delete Course')
+
+
+class BatchManagementTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='batch_admin',
+            password='pass123',
+            role=User.Role.ADMIN,
+        )
+        self.instructor = User.objects.create_user(
+            username='batch_trainer',
+            password='pass123',
+            role=User.Role.INSTRUCTOR,
+        )
+        self.student = User.objects.create_user(
+            username='batch_student',
+            password='pass123',
+            role=User.Role.STUDENT,
+        )
+        self.course = Course.objects.create(
+            title='Batch Course',
+            instructor=self.instructor,
+            is_active=True,
+        )
+        self.batch = Batch.objects.create(name='Morning Batch')
+
+    def test_assigning_course_to_batch_enrolls_existing_batch_students(self):
+        BatchStudent.objects.create(batch=self.batch, student=self.student, is_active=True)
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('assign-courses-to-batch', args=[self.batch.id]),
+            {'course_ids': [str(self.course.id)]},
+        )
+
+        self.assertRedirects(
+            response,
+            f"{reverse('batch-list')}?manage=assign-courses",
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(
+            BatchCourse.objects.filter(batch=self.batch, course=self.course, is_active=True).exists()
+        )
+        self.assertTrue(
+            Enrollment.objects.filter(student=self.student, course=self.course, is_active=True).exists()
+        )
+
+    def test_adding_student_to_batch_enrolls_them_in_existing_batch_courses(self):
+        BatchCourse.objects.create(batch=self.batch, course=self.course, is_active=True)
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('assign-students-to-batch', args=[self.batch.id]),
+            {'student_ids': [str(self.student.id)]},
+        )
+
+        self.assertRedirects(
+            response,
+            f"{reverse('batch-list')}?manage=assign-students",
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(
+            BatchStudent.objects.filter(batch=self.batch, student=self.student, is_active=True).exists()
+        )
+        self.assertTrue(
+            Enrollment.objects.filter(student=self.student, course=self.course, is_active=True).exists()
+        )

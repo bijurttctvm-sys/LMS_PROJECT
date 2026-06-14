@@ -10,12 +10,25 @@ from utils.upload_validators import validate_uploaded_file
 from .models import User
 
 
+def _normalise_email(value):
+    return (value or '').strip().lower()
+
+
 class RegisterForm(UserCreationForm):
     email = forms.EmailField(required=True)
 
     class Meta:
         model = User
         fields = ('username', 'email', 'password1', 'password2')
+
+    def clean_username(self):
+        return (self.cleaned_data.get('username') or '').strip()
+
+    def clean_email(self):
+        email = _normalise_email(self.cleaned_data.get('email'))
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError('An account with this email already exists.')
+        return email
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -57,6 +70,12 @@ class ProfileForm(forms.ModelForm):
             'profile_picture': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
         }
 
+    def clean_email(self):
+        email = _normalise_email(self.cleaned_data.get('email'))
+        if User.objects.exclude(pk=self.instance.pk).filter(email__iexact=email).exists():
+            raise forms.ValidationError('That email address is already in use.')
+        return email
+
     def clean_google_meet_link(self):
         value = (self.cleaned_data.get('google_meet_link') or '').strip()
         if not value:
@@ -80,6 +99,7 @@ class ProfileForm(forms.ModelForm):
             allowed_content_types={'image/*'},
             max_bytes=settings.MAX_PROFILE_IMAGE_BYTES,
             label='Profile picture',
+            verify_image=True,
         )
 
 
@@ -103,6 +123,15 @@ class CreateUserForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ('username', 'first_name', 'last_name', 'email', 'role')
+
+    def clean_username(self):
+        return (self.cleaned_data.get('username') or '').strip()
+
+    def clean_email(self):
+        email = _normalise_email(self.cleaned_data.get('email'))
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError('An account with this email already exists.')
+        return email
 
     def clean_password2(self):
         password1 = self.cleaned_data.get('password1', '')

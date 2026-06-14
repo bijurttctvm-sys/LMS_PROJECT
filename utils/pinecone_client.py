@@ -1,4 +1,5 @@
 import logging
+import threading
 
 from django.conf import settings
 
@@ -6,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 INDEX_NAME = None  # resolved lazily from settings
 _index = None
+_warmup_started = False
 
 
 def get_index():
@@ -17,6 +19,24 @@ def get_index():
     pc = Pinecone(api_key=settings.PINECONE_API_KEY)
     _index = pc.Index(INDEX_NAME)
     return _index
+
+
+def warm_up_index():
+    try:
+        idx = get_index()
+        idx.describe_index_stats()
+        logger.info("Learning Assistant Pinecone warmup completed")
+    except Exception as exc:
+        logger.warning("Learning Assistant Pinecone warmup failed: %s", exc)
+
+
+def warm_up_index_async():
+    global _warmup_started
+    if _warmup_started:
+        return
+    _warmup_started = True
+    thread = threading.Thread(target=warm_up_index, name="chatbot-pinecone-warmup", daemon=True)
+    thread.start()
 
 
 def upsert_chunks(video_id, course_id, chunks, embeddings, language):

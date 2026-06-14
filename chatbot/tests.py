@@ -154,6 +154,38 @@ class ChatbotQueryViewTest(TestCase):
         self.assertEqual(body["answer"], "പൈത്തൺ ഒരു പൊതുവായ പ്രോഗ്രാമിംഗ് ഭാഷയാണ്.")
         self.assertEqual(body["audio"], "FAKE_AUDIO")
 
+    def test_deferred_voice_returns_text_first_and_skips_inline_tts(self):
+        fake_chunks = [
+            {"text": "Python is a language", "video_id": 1,
+             "start": 0.0, "end": 5.0, "score": 0.9}
+        ]
+        with patch("utils.embeddings.generate_query_embedding",
+                   return_value=[0.1] * 1024), \
+             patch("utils.pinecone_client.search_chunks",
+                   return_value=fake_chunks), \
+             patch("utils.groq_llm.get_answer",
+                   return_value="Python is a general-purpose language."), \
+             patch("chatbot.views._sarvam_tts") as mock_tts, \
+             patch("utils.redis_cache.get_cached_result", return_value=None), \
+             patch("utils.redis_cache.set_cached_result"):
+            response = self.client.post(
+                "/chatbot/query/",
+                data=json.dumps({
+                    "query": "what is python",
+                    "course_id": self.course.id,
+                    "voice": True,
+                    "defer_voice": True,
+                }),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = json.loads(response.content)
+        self.assertEqual(body["answer"], "Python is a general-purpose language.")
+        self.assertTrue(body["voice_deferred"])
+        self.assertNotIn("audio", body)
+        mock_tts.assert_not_called()
+
     def test_malayalam_query_translates_to_english_then_back_to_malayalam(self):
         fake_chunks = [
             {"text": "Python is a language", "video_id": 1,
@@ -206,6 +238,20 @@ class ChatbotQueryViewTest(TestCase):
         mock_search.assert_not_called()
         body = json.loads(r.content)
         self.assertEqual(body["answer"], "Cached answer about Python")
+
+    def test_tts_endpoint_returns_audio(self):
+        with patch("chatbot.views._sarvam_tts", return_value="FAKE_AUDIO"):
+            response = self.client.post(
+                "/chatbot/tts/",
+                data=json.dumps({
+                    "text": "Python is a general-purpose language.",
+                    "language": "en",
+                }),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content)["audio"], "FAKE_AUDIO")
 
     def test_unauthenticated_redirects(self):
         """Unauthenticated request gets redirected to login page."""
