@@ -17,7 +17,7 @@ def _instructor_or_admin(view_func):
         if not request.user.is_authenticated:
             return redirect('login')
         if request.user.role not in (User.Role.ADMIN, User.Role.INSTRUCTOR):
-            messages.error(request, 'Instructors and admins only.')
+            messages.error(request, 'Trainers and admins only.')
             return redirect('login')
         return view_func(request, *args, **kwargs)
     wrapper.__name__ = view_func.__name__
@@ -78,8 +78,8 @@ def upload_video_view(request):
                 if Video.objects.filter(course=course).exists():
                     messages.error(
                         request,
-                        'A video already exists for this course. '
-                        'Each course can have only one video.'
+                        'Content already exists for this course. '
+                        'Each course can have only one content item.'
                     )
                     return render(request, 'videos/upload.html', {'form': form})
 

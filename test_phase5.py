@@ -19,6 +19,10 @@ import sys
 import traceback
 from unittest.mock import MagicMock, patch
 
+if __name__ != "__main__":
+    import unittest
+    raise unittest.SkipTest("Standalone diagnostic script; run explicitly.")
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "lms_project.test_settings")
 import django
 django.setup()

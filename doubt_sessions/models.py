@@ -28,7 +28,7 @@ class DoubtSession(models.Model):
         REQUESTED = 'requested', 'Requested'
         SELECTED  = 'selected',  'Slots Proposed'
         CONFIRMED = 'confirmed', 'Confirmed'
-        POSTPONED = 'postponed', 'Postponed by Instructor'
+        POSTPONED = 'postponed', 'Postponed by Trainer'
         ATTENDED  = 'attended',  'Attended'
         NO_SHOW   = 'no_show',   'Not Attended'
         CANCELLED = 'cancelled', 'Cancelled'

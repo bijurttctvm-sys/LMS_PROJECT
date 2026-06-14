@@ -70,8 +70,8 @@ class ProfileForm(forms.ModelForm):
 class CreateUserForm(forms.ModelForm):
     role = forms.ChoiceField(
         choices=[
-            (User.Role.INSTRUCTOR, 'Instructor'),
-            (User.Role.STUDENT, 'Student'),
+            (User.Role.INSTRUCTOR, 'Trainer'),
+            (User.Role.STUDENT, 'Trainee'),
         ],
         help_text='Select the role for this new user.',
     )

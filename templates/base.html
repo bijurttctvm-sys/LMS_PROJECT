@@ -9,29 +9,53 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <!-- Bootstrap Icons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <!-- Noto Sans Malayalam for ML text -->
+  <!-- Workspace typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Malayalam:wght@400;600&display=swap">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Malayalam:wght@400;600&display=swap">
 
   <style>
     /* ── Root variables ──────────────────────────────────────────────────────── */
     :root {
-      --sidebar-w: 240px;
-      --topbar-h: 60px;
-      --sidebar-bg: #16191f;
-      --sidebar-text: #a9b0bb;
-      --sidebar-hover: #252a35;
-      --sidebar-active: #2a3045;
-      --sidebar-accent: #4f8ef7;
-      --topbar-bg: #ffffff;
-      --body-bg: #f0f2f5;
+      --sidebar-w: 264px;
+      --topbar-h: 72px;
+      --sidebar-bg: linear-gradient(180deg, #091526 0%, #10223c 50%, #0b1728 100%);
+      --sidebar-text: #9fb0cb;
+      --sidebar-hover: rgba(255,255,255,.08);
+      --sidebar-active: rgba(255,255,255,.14);
+      --sidebar-accent: #36c2a4;
+      --topbar-bg: rgba(255,255,255,.8);
+      --body-bg: #f4f7fb;
+      --surface-solid: #ffffff;
+      --line-soft: rgba(15,23,42,.08);
+      --text-main: #0f172a;
+      --text-soft: #5b6477;
+      --shadow-soft: 0 24px 60px rgba(15,23,42,.08);
+      --shadow-card: 0 18px 40px rgba(15,23,42,.08);
     }
 
     /* ── Body & layout shell ─────────────────────────────────────────────────── */
     body {
-      background: var(--body-bg);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(54,194,164,.18), transparent 30%),
+        radial-gradient(circle at top right, rgba(37,99,235,.12), transparent 26%),
+        linear-gradient(180deg, #eff4fb 0%, #f8fafc 48%, #eef3f9 100%);
+      font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
       font-size: .9375rem;
+      color: var(--text-main);
+      letter-spacing: -.01em;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -18vh -8vw auto;
+      height: 52vh;
+      background: radial-gradient(circle, rgba(255,255,255,.85) 0%, rgba(255,255,255,0) 68%);
+      filter: blur(60px);
+      opacity: .65;
+      z-index: -1;
+      pointer-events: none;
     }
 
     /* ── Sidebar ─────────────────────────────────────────────────────────────── */
@@ -47,72 +71,81 @@
       display: flex;
       flex-direction: column;
       transition: transform .25s ease;
+      box-shadow: 18px 0 48px rgba(5, 10, 25, .22);
     }
 
     .sidebar-brand {
       display: flex;
       align-items: center;
-      gap: .6rem;
-      padding: 1.1rem 1.25rem;
+      gap: .8rem;
+      padding: 1.35rem 1.35rem 1.15rem;
       text-decoration: none;
-      border-bottom: 1px solid #252a35;
+      border-bottom: 1px solid rgba(255,255,255,.09);
     }
     .sidebar-brand .brand-icon {
-      width: 32px; height: 32px;
-      background: var(--sidebar-accent);
-      border-radius: 8px;
+      width: 42px; height: 42px;
+      background: linear-gradient(135deg, #38bdf8, #36c2a4);
+      border-radius: 14px;
       display: flex; align-items: center; justify-content: center;
-      color: #fff; font-size: 1rem; font-weight: 700; flex-shrink: 0;
+      color: #fff; font-size: 1rem; font-weight: 800; flex-shrink: 0;
+      box-shadow: 0 12px 30px rgba(54,194,164,.28);
     }
     .sidebar-brand .brand-name {
       color: #fff;
-      font-weight: 700;
-      font-size: 1.05rem;
-      letter-spacing: .3px;
+      font-weight: 800;
+      font-size: 1.12rem;
+      letter-spacing: .02em;
     }
     .sidebar-brand .brand-sub {
-      color: var(--sidebar-text);
-      font-size: .7rem;
+      color: rgba(211,221,238,.78);
+      font-size: .68rem;
       line-height: 1;
+      text-transform: uppercase;
+      letter-spacing: .14em;
     }
 
     .sidebar-section {
-      padding: .9rem 1rem .2rem;
+      padding: 1rem 1rem .2rem;
     }
     .sidebar-label {
       font-size: .65rem;
       text-transform: uppercase;
-      letter-spacing: .08em;
-      color: #555e6d;
-      font-weight: 600;
-      padding: 0 .25rem;
+      letter-spacing: .16em;
+      color: rgba(159,176,203,.58);
+      font-weight: 700;
+      padding: 0 .45rem;
     }
 
     .sidebar-nav {
       list-style: none;
-      padding: .25rem .75rem;
+      padding: .35rem .6rem;
       margin: 0;
     }
-    .sidebar-nav li + li { margin-top: 2px; }
+    .sidebar-nav li + li { margin-top: .2rem; }
     .sidebar-nav a {
       display: flex;
       align-items: center;
-      gap: .65rem;
-      padding: .52rem .75rem;
-      border-radius: 8px;
+      gap: .75rem;
+      padding: .72rem .85rem;
+      border-radius: 16px;
       color: var(--sidebar-text);
       text-decoration: none;
-      font-size: .875rem;
-      font-weight: 500;
-      transition: background .15s, color .15s;
+      font-size: .88rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+      transition: background .15s, color .15s, border-color .15s, transform .15s;
     }
     .sidebar-nav a:hover {
       background: var(--sidebar-hover);
       color: #fff;
+      border-color: rgba(255,255,255,.08);
+      transform: translateX(2px);
     }
     .sidebar-nav a.active {
       background: var(--sidebar-active);
       color: #fff;
+      border-color: rgba(255,255,255,.1);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
     }
     .sidebar-nav a .nav-icon {
       font-size: 1.05rem;
@@ -129,8 +162,8 @@
 
     .sidebar-footer {
       margin-top: auto;
-      padding: 1rem;
-      border-top: 1px solid #252a35;
+      padding: 1.1rem;
+      border-top: 1px solid rgba(255,255,255,.09);
     }
 
     /* ── Sidebar overlay (mobile) ────────────────────────────────────────────── */
@@ -156,37 +189,44 @@
     .lms-topbar {
       height: var(--topbar-h);
       background: var(--topbar-bg);
-      border-bottom: 1px solid #e3e6ec;
+      border-bottom: 1px solid rgba(15,23,42,.06);
       display: flex;
       align-items: center;
-      padding: 0 1.5rem;
+      padding: 0 2rem;
       gap: 1rem;
       position: sticky;
       top: 0;
       z-index: 100;
+      backdrop-filter: blur(18px);
+      box-shadow: 0 10px 32px rgba(15,23,42,.04);
     }
     .topbar-toggle {
       display: none;
       background: none; border: none;
-      font-size: 1.3rem; color: #555; cursor: pointer; padding: .2rem .4rem;
+      font-size: 1.3rem; color: #4b5565; cursor: pointer; padding: .2rem .4rem;
     }
     .topbar-title {
-      font-weight: 600; font-size: 1rem; color: #1a1d23;
+      font-weight: 700; font-size: 1.02rem; color: var(--text-main);
     }
     .topbar-right {
       margin-left: auto;
       display: flex; align-items: center; gap: .75rem;
     }
     .topbar-icon-btn {
-      background: none; border: none;
+      background: rgba(15,23,42,.04);
+      border: 1px solid var(--line-soft);
       width: 38px; height: 38px;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      color: #555; font-size: 1.15rem; cursor: pointer;
-      transition: background .15s;
+      color: #4f5f79; font-size: 1.05rem; cursor: pointer;
+      transition: background .15s, transform .15s, border-color .15s;
       position: relative;
     }
-    .topbar-icon-btn:hover { background: #f0f2f5; }
+    .topbar-icon-btn:hover {
+      background: #fff;
+      border-color: rgba(37,99,235,.12);
+      transform: translateY(-1px);
+    }
     .notif-dot {
       position: absolute; top: 6px; right: 6px;
       width: 8px; height: 8px;
@@ -195,18 +235,19 @@
       border: 2px solid #fff;
     }
     .user-avatar {
-      width: 36px; height: 36px;
+      width: 42px; height: 42px;
       border-radius: 50%;
-      background: var(--sidebar-accent);
+      background: linear-gradient(135deg, #1d4ed8, #36c2a4);
       color: #fff;
-      font-weight: 700;
-      font-size: .85rem;
+      font-weight: 800;
+      font-size: .84rem;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer;
       flex-shrink: 0;
+      box-shadow: 0 12px 24px rgba(29,78,216,.2);
     }
     .user-dropdown {
-      min-width: 200px;
+      min-width: 220px;
     }
     .role-pill {
       font-size: .68rem;
@@ -220,48 +261,269 @@
     /* ── Content area ────────────────────────────────────────────────────────── */
     .lms-content {
       flex: 1;
-      padding: 1.75rem 2rem;
+      padding: 2rem 2.25rem 2.25rem;
     }
 
     /* ── Footer ──────────────────────────────────────────────────────────────── */
     .lms-footer {
-      padding: .85rem 2rem;
+      padding: 1rem 2.25rem;
       font-size: .78rem;
-      color: #9aa0ac;
-      border-top: 1px solid #e3e6ec;
-      background: #fff;
+      color: #8a94a7;
+      border-top: 1px solid rgba(15,23,42,.06);
+      background: rgba(255,255,255,.72);
+      backdrop-filter: blur(16px);
     }
 
     /* ── Cards ───────────────────────────────────────────────────────────────── */
     .card {
-      border: none;
-      box-shadow: 0 1px 4px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
-      border-radius: 10px;
+      border: 1px solid var(--line-soft);
+      box-shadow: var(--shadow-card);
+      border-radius: 22px;
+      background: var(--surface-solid);
     }
     .card-header-flush {
-      padding: 1rem 1.25rem .5rem;
-      border-bottom: 1px solid #f0f2f5;
+      padding: 1.1rem 1.35rem .55rem;
+      border-bottom: 1px solid rgba(15,23,42,.05);
     }
 
     /* ── Progress bar ────────────────────────────────────────────────────────── */
-    .progress { border-radius: 20px; }
+    .progress {
+      border-radius: 999px;
+      background: rgba(148,163,184,.18);
+      overflow: hidden;
+    }
 
     /* ── Stat card ───────────────────────────────────────────────────────────── */
     .stat-card {
-      border-radius: 12px;
-      padding: 1.25rem 1.5rem;
+      border-radius: 22px;
+      padding: 1.35rem 1.5rem;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
     }
     .stat-card .stat-num {
-      font-size: 2rem; font-weight: 700; line-height: 1.1;
+      font-size: 1.95rem; font-weight: 800; line-height: 1.05;
     }
     .stat-card .stat-label {
-      font-size: .8rem; color: #6c757d; margin-top: .2rem;
+      font-size: .78rem; color: var(--text-soft); margin-top: .25rem;
+      letter-spacing: .03em;
+    }
+
+    .page-hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 28px;
+      padding: 1.85rem 1.9rem;
+      background: linear-gradient(135deg, #0f172a 0%, #17325d 42%, #155e75 100%);
+      color: #fff;
+      box-shadow: 0 28px 60px rgba(15,23,42,.16);
+    }
+    .page-hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -15% -35% auto;
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 72%);
+      pointer-events: none;
+    }
+    .hero-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      padding: .45rem .75rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.12);
+      font-size: .74rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .hero-title {
+      font-size: clamp(1.7rem, 3vw, 2.45rem);
+      line-height: 1.08;
+      font-weight: 800;
+      margin: 1rem 0 .55rem;
+    }
+    .hero-copy {
+      max-width: 720px;
+      margin: 0;
+      font-size: .96rem;
+      color: rgba(226,232,240,.86);
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+      margin-top: 1.4rem;
+    }
+    .hero-metrics {
+      display: grid;
+      gap: .9rem;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      margin-top: 1.5rem;
+    }
+    .hero-metric {
+      padding: 1rem 1.05rem;
+      border-radius: 18px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.1);
+      backdrop-filter: blur(10px);
+    }
+    .hero-metric-value {
+      font-size: 1.55rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .hero-metric-label {
+      font-size: .78rem;
+      color: rgba(226,232,240,.84);
+      margin-top: .35rem;
+    }
+    .section-card {
+      padding: 1.35rem;
+      border-radius: 24px;
+      border: 1px solid var(--line-soft);
+      background: rgba(255,255,255,.92);
+      box-shadow: var(--shadow-soft);
+    }
+    .section-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .section-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      font-size: .74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: #4f6b95;
+      margin-bottom: .55rem;
+    }
+    .section-title {
+      margin: 0;
+      font-size: 1.02rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .surface-tile {
+      border: 1px solid rgba(148,163,184,.18);
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      border-radius: 20px;
+      padding: 1rem;
+    }
+    .mini-stat {
+      padding: 1.15rem;
+      border-radius: 20px;
+      border: 1px solid rgba(148,163,184,.16);
+      background: linear-gradient(180deg, rgba(255,255,255,.94) 0%, rgba(246,249,253,.92) 100%);
+      box-shadow: 0 10px 24px rgba(15,23,42,.05);
+    }
+    .mini-stat-value {
+      font-size: 1.8rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .mini-stat-label {
+      margin-top: .4rem;
+      color: var(--text-soft);
+      font-size: .78rem;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .info-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      padding: .42rem .72rem;
+      border-radius: 999px;
+      background: rgba(37,99,235,.08);
+      color: #2254c6;
+      font-size: .74rem;
+      font-weight: 700;
+      border: 1px solid rgba(37,99,235,.08);
+    }
+    .list-row-card {
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 20px;
+      padding: 1rem;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+    .list-row-card:hover {
+      transform: translateY(-1px);
+      border-color: rgba(37,99,235,.16);
+      box-shadow: 0 16px 32px rgba(15,23,42,.07);
+    }
+    .empty-state {
+      text-align: center;
+      padding: 2.4rem 1rem;
+      color: var(--text-soft);
+    }
+    .empty-state i {
+      font-size: 2rem;
+      opacity: .45;
+    }
+    .badge {
+      border-radius: 999px;
+      font-weight: 700;
+    }
+    .btn {
+      border-radius: 14px;
+      font-weight: 700;
+      padding: .7rem 1rem;
+      box-shadow: none;
+    }
+    .btn-sm {
+      padding: .58rem .88rem;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #1d4ed8, #0f766e);
+      border: none;
+      box-shadow: 0 16px 28px rgba(29,78,216,.16);
+    }
+    .btn-primary:hover,
+    .btn-primary:focus {
+      background: linear-gradient(135deg, #1b47c2, #0d695f);
+    }
+    .form-control,
+    .form-select {
+      border-radius: 14px;
+      border-color: rgba(148,163,184,.28);
+      min-height: 46px;
+      box-shadow: none;
+    }
+    .form-control:focus,
+    .form-select:focus {
+      border-color: rgba(29,78,216,.45);
+      box-shadow: 0 0 0 .25rem rgba(59,130,246,.12);
+    }
+    .table thead th {
+      font-size: .73rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #66748f;
+      border-bottom-color: rgba(15,23,42,.06);
+    }
+    .table > :not(caption) > * > * {
+      padding-top: .82rem;
+      padding-bottom: .82rem;
+      border-bottom-color: rgba(15,23,42,.06);
+    }
+    .dropdown-menu {
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 18px;
+      box-shadow: 0 20px 40px rgba(15,23,42,.1);
     }
 
     /* ── Status badges ───────────────────────────────────────────────────────── */
     .badge-status-UPLOADED   { background: #6c757d; color:#fff; }
     .badge-status-PROCESSING { background: #fd7e14; color:#fff; }
-    .badge-status-TRANSCRIBED{ background: #0dcaf0; color:#000; }
     .badge-status-READY      { background: #198754; color:#fff; }
     .badge-status-FAILED     { background: #dc3545; color:#fff; }
 
@@ -590,13 +852,13 @@
     <ul class="sidebar-nav">
       <li><a href="{% url 'instructor-dashboard' %}"><span class="nav-icon"><i class="bi bi-speedometer2"></i></span>Dashboard</a></li>
       <li><a href="{% url 'course-list' %}"><span class="nav-icon"><i class="bi bi-journal-bookmark"></i></span>My Courses</a></li>
-      <li><a href="{% url 'upload-video' %}"><span class="nav-icon"><i class="bi bi-cloud-upload"></i></span>Upload Video</a></li>
+      <li><a href="{% url 'upload-video' %}"><span class="nav-icon"><i class="bi bi-cloud-upload"></i></span>Upload Content</a></li>
     </ul>
   </div>
   <div class="sidebar-section">
     <span class="sidebar-label">Sessions</span>
     <ul class="sidebar-nav">
-      <li><a href="{% url 'instructor-sessions' %}"><span class="nav-icon"><i class="bi bi-camera-video"></i></span>Doubt Sessions</a></li>
+      <li><a href="{% url 'instructor-sessions' %}"><span class="nav-icon"><i class="bi bi-camera-video"></i></span>Interactive Sessions</a></li>
     </ul>
   </div>
   <div class="sidebar-section">
@@ -622,7 +884,7 @@
     <ul class="sidebar-nav">
       <li><a href="{% url 'student-quiz-list' %}"><span class="nav-icon"><i class="bi bi-question-circle"></i></span>Quizzes</a></li>
       <li><a href="{% url 'request-session' %}"><span class="nav-icon"><i class="bi bi-calendar-check"></i></span>Request Session</a></li>
-      <li><a href="{% url 'my-sessions' %}"><span class="nav-icon"><i class="bi bi-camera-video"></i></span>My Sessions</a></li>
+      <li><a href="{% url 'my-sessions' %}"><span class="nav-icon"><i class="bi bi-camera-video"></i></span>Interactive Sessions</a></li>
     </ul>
   </div>
   <div class="sidebar-section">

@@ -23,6 +23,10 @@ from datetime import timedelta
 from io import StringIO
 from unittest.mock import patch
 
+if __name__ != "__main__":
+    import unittest
+    raise unittest.SkipTest("Standalone diagnostic script; run explicitly.")
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "lms_project.test_settings")
 import django
 django.setup()

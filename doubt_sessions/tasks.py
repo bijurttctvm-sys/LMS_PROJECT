@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, max_retries=2)
 def send_confirmation_emails(self, session_id):
-    """Send HTML confirmation emails to both student and instructor."""
+    """Send HTML confirmation emails to both trainee and trainer."""
     from django.conf import settings as _s
     from django.core.mail import EmailMultiAlternatives
     from django.template.loader import render_to_string
@@ -38,10 +38,10 @@ def send_confirmation_emails(self, session_id):
         if session.student.email:
             html = render_to_string('emails/session_confirmed_student.html', ctx)
             msg  = EmailMultiAlternatives(
-                subject   = f'Doubt session confirmed — {slot_local.strftime("%b %d, %Y %I:%M %p")}',
+                subject   = f'Interactive session confirmed — {slot_local.strftime("%b %d, %Y %I:%M %p")}',
                 body      = (
                     f'Hi {session.student.first_name or session.student.username},\n\n'
-                    f'Your doubt session with '
+                    f'Your interactive session with '
                     f'{session.instructor.get_full_name() or session.instructor.username} '
                     f'on {slot_local.strftime("%B %d, %Y at %I:%M %p")} is confirmed.\n\n'
                     f'Join: {session.meet_url or "(no link set)"}'
@@ -56,11 +56,11 @@ def send_confirmation_emails(self, session_id):
         if session.instructor.email:
             html = render_to_string('emails/session_confirmed_instructor.html', ctx)
             msg  = EmailMultiAlternatives(
-                subject   = f'New doubt session booked — {slot_local.strftime("%b %d, %Y %I:%M %p")}',
+                subject   = f'New interactive session booked — {slot_local.strftime("%b %d, %Y %I:%M %p")}',
                 body      = (
                     f'Hi {session.instructor.first_name or session.instructor.username},\n\n'
-                    f'Student {session.student.get_full_name() or session.student.username} '
-                    f'has booked a doubt session on '
+                    f'Trainee {session.student.get_full_name() or session.student.username} '
+                    f'has booked an interactive session on '
                     f'{slot_local.strftime("%B %d, %Y at %I:%M %p")}.\n\n'
                     f'Join: {session.meet_url or "(no link set)"}'
                 ),
@@ -122,7 +122,7 @@ def send_reminder_email(self, session_id):
                 subject   = f'Reminder: session in 15 min — {slot_local.strftime("%I:%M %p")}',
                 body      = (
                     f'Hi {name},\n\n'
-                    f'Your doubt session starts in 15 minutes '
+                    f'Your interactive session starts in 15 minutes '
                     f'({slot_local.strftime("%B %d, %Y at %I:%M %p")}).\n\n'
                     f'Join now: {session.meet_url or "(no link set)"}'
                 ),

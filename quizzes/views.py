@@ -54,7 +54,7 @@ def _student_required(view_func):
         if not request.user.is_authenticated:
             return redirect('login')
         if request.user.role != User.Role.STUDENT:
-            messages.error(request, 'Student access required.')
+            messages.error(request, 'Trainee access required.')
             return redirect('home')
         return view_func(request, *args, **kwargs)
     return wrapper

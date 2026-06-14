@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load tz %}
-{% block title %}Book a Doubt Session — LMS{% endblock %}
+{% block title %}Book an Interactive Session — LMS{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -13,11 +13,10 @@
 {% endblock %}
 
 {% block content %}
-<h2>Book a Doubt Session</h2>
-<p class="text-muted">One-on-one session with your instructor via Google Meet</p>
+<h2>Book an Interactive Session</h2>
+<p class="text-muted">One-on-one session with your trainer via Google Meet</p>
 
 {% if not eligible and active_session %}
-<!-- ── Already booked ──────────────────────────────────────────────────────── -->
 <div class="card border-primary mb-4">
   <div class="card-header bg-primary text-white fw-semibold">
     You have an upcoming session
@@ -25,7 +24,7 @@
   <div class="card-body">
     <div class="row g-3">
       <div class="col-md-6">
-        <p class="mb-1"><strong>Instructor:</strong>
+        <p class="mb-1"><strong>Trainer:</strong>
           {{ active_session.instructor.get_full_name|default:active_session.instructor.username }}
         </p>
         {% localtime on %}
@@ -40,8 +39,7 @@
       </div>
       <div class="col-md-6 d-flex align-items-center">
         {% if active_session.meet_url %}
-          <a href="{{ active_session.meet_url }}" target="_blank"
-             class="btn btn-success w-100">
+          <a href="{{ active_session.meet_url }}" target="_blank" class="btn btn-success w-100">
             Join Google Meet
           </a>
         {% else %}
@@ -58,7 +56,6 @@
 </div>
 
 {% elif not eligible and next_eligible_date %}
-<!-- ── Cooldown / not eligible ─────────────────────────────────────────────── -->
 <div class="card border-warning mb-4">
   <div class="card-body text-center py-5">
     <div class="countdown-ring mb-2" id="countdown-display">--</div>
@@ -90,7 +87,6 @@ tick(); setInterval(tick, 60000);
 {% endblock %}
 
 {% else %}
-<!-- ── Eligible: show available slots ─────────────────────────────────────── -->
 {% if available_slots %}
 <form method="post">
   {% csrf_token %}
@@ -130,7 +126,7 @@ tick(); setInterval(tick, 60000);
 {% else %}
 <div class="alert alert-info">
   <strong>No slots available right now.</strong><br>
-  Check back later or ask your instructor to add availability.
+  Check back later or ask your trainer to add availability.
 </div>
 {% endif %}
 {% endif %}

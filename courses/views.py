@@ -16,7 +16,7 @@ def _instructor_or_admin(view_func):
         if not request.user.is_authenticated:
             return redirect('login')
         if request.user.role not in (User.Role.ADMIN, User.Role.INSTRUCTOR):
-            messages.error(request, 'Instructors and admins only.')
+            messages.error(request, 'Trainers and admins only.')
             return redirect('login')
         return view_func(request, *args, **kwargs)
     wrapper.__name__ = view_func.__name__
@@ -160,12 +160,12 @@ def assign_instructor(request, course_id):
             course.save(update_fields=['instructor'])
             messages.success(
                 request,
-                f'{instructor.username} assigned as instructor for {course.title}.'
+                f'{instructor.username} assigned as trainer for {course.title}.'
             )
         else:
             course.instructor = None
             course.save(update_fields=['instructor'])
-            messages.warning(request, f'Instructor removed from {course.title}.')
+            messages.warning(request, f'Trainer removed from {course.title}.')
         return redirect('course-detail', course_id=course.id)
     instructors = User.objects.filter(role=User.Role.INSTRUCTOR)
     return render(request, 'courses/assign_instructor.html', {

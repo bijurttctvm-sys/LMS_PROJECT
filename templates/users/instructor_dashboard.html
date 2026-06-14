@@ -1,42 +1,57 @@
 {% extends "base.html" %}
 {% load tz %}
-{% block title %}Instructor Dashboard — LMS{% endblock %}
-{% block page_title %}Instructor Dashboard{% endblock %}
+{% block title %}Trainer Dashboard — LMS{% endblock %}
+{% block page_title %}Trainer Dashboard{% endblock %}
 
 {% block extra_head %}
 <style>
-  .video-status-row { transition: background .3s; }
+  .content-status-row { transition: background .3s; }
   .processing-pulse { animation: pulse-bg 2s infinite; }
   @keyframes pulse-bg {
     0%,100% { background: #fff8ec; }
-    50%      { background: #fff3cc; }
+    50%     { background: #fff3cc; }
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-4">
-  <div>
-    <h4 class="mb-0 fw-bold">Welcome, {{ user.first_name|default:user.username }}!</h4>
-    <p class="text-muted mb-0 mt-1" style="font-size:.875rem;">Your teaching overview at a glance.</p>
-  </div>
-  <div class="d-flex gap-2">
-    <a href="{% url 'upload-video' %}" class="btn btn-primary btn-sm">
-      <i class="bi bi-cloud-upload me-1"></i>Upload Video
-    </a>
-    <a href="{% url 'create-course' %}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-plus-circle me-1"></i>New Course
-    </a>
+<div class="page-hero mb-4">
+  <div class="row g-4 align-items-end">
+    <div class="col-lg-8">
+      <span class="hero-kicker"><i class="bi bi-easel2"></i> Trainer workspace</span>
+      <h1 class="hero-title">Trainer Dashboard</h1>
+      <p class="hero-copy">
+        Manage content, course activity, trainee engagement, and live support from a streamlined teaching console.
+      </p>
+      <div class="hero-actions">
+        <a href="{% url 'upload-video' %}" class="btn btn-light btn-sm">
+          <i class="bi bi-cloud-upload me-1"></i>Upload Content
+        </a>
+        <a href="{% url 'create-course' %}" class="btn btn-outline-light btn-sm">
+          <i class="bi bi-plus-circle me-1"></i>New Course
+        </a>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="hero-metrics">
+        <div class="hero-metric">
+          <div class="hero-metric-value">{{ courses|length }}</div>
+          <div class="hero-metric-label">Active Courses</div>
+        </div>
+        <div class="hero-metric">
+          <div class="hero-metric-value">{{ total_students|default:"—" }}</div>
+          <div class="hero-metric-label">Trainees</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- ── Quick stats row ─────────────────────────────────────────────────────── -->
 <div class="row g-3 mb-4">
   <div class="col-6 col-md-3">
-    <div class="card stat-card">
+    <div class="card stat-card h-100">
       <div class="d-flex align-items-center gap-3">
-        <div style="width:44px;height:44px;border-radius:10px;background:#e8f0fe;
-                    display:flex;align-items:center;justify-content:center;color:#1a73e8;font-size:1.2rem;">
+        <div style="width:46px;height:46px;border-radius:14px;background:#e8f0fe;display:flex;align-items:center;justify-content:center;color:#1d4ed8;font-size:1.2rem;">
           <i class="bi bi-journal-bookmark"></i>
         </div>
         <div>
@@ -47,26 +62,22 @@
     </div>
   </div>
   <div class="col-6 col-md-3">
-    <div class="card stat-card">
+    <div class="card stat-card h-100">
       <div class="d-flex align-items-center gap-3">
-        <div style="width:44px;height:44px;border-radius:10px;background:#e8f5e9;
-                    display:flex;align-items:center;justify-content:center;color:#188038;font-size:1.2rem;">
+        <div style="width:46px;height:46px;border-radius:14px;background:#e8f5e9;display:flex;align-items:center;justify-content:center;color:#188038;font-size:1.2rem;">
           <i class="bi bi-people"></i>
         </div>
         <div>
-          <div class="stat-num text-success">
-            {{ total_students|default:"—" }}
-          </div>
-          <div class="stat-label">Students</div>
+          <div class="stat-num text-success">{{ total_students|default:"—" }}</div>
+          <div class="stat-label">Trainees</div>
         </div>
       </div>
     </div>
   </div>
   <div class="col-6 col-md-3">
-    <div class="card stat-card">
+    <div class="card stat-card h-100">
       <div class="d-flex align-items-center gap-3">
-        <div style="width:44px;height:44px;border-radius:10px;background:#fce8e6;
-                    display:flex;align-items:center;justify-content:center;color:#c0392b;font-size:1.2rem;">
+        <div style="width:46px;height:46px;border-radius:14px;background:#fce8e6;display:flex;align-items:center;justify-content:center;color:#c0392b;font-size:1.2rem;">
           <i class="bi bi-patch-check"></i>
         </div>
         <div>
@@ -77,15 +88,14 @@
     </div>
   </div>
   <div class="col-6 col-md-3">
-    <div class="card stat-card">
+    <div class="card stat-card h-100">
       <div class="d-flex align-items-center gap-3">
-        <div style="width:44px;height:44px;border-radius:10px;background:#ede7f6;
-                    display:flex;align-items:center;justify-content:center;color:#6f42c1;font-size:1.2rem;">
+        <div style="width:46px;height:46px;border-radius:14px;background:#ede7f6;display:flex;align-items:center;justify-content:center;color:#6f42c1;font-size:1.2rem;">
           <i class="bi bi-calendar-check"></i>
         </div>
         <div>
           <div class="stat-num" style="color:#6f42c1;">{{ pending_requests_count }}</div>
-          <div class="stat-label">Pending Requests</div>
+          <div class="stat-label">Session Requests</div>
         </div>
       </div>
     </div>
@@ -93,261 +103,227 @@
 </div>
 
 <div class="row g-4">
-
-  <!-- ── Left column ──────────────────────────────────────────────────────── -->
   <div class="col-lg-8">
-
-    <!-- Video processing status tracker -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-          <h6 class="fw-bold mb-0">
-            <i class="bi bi-camera-video me-2 text-primary"></i>Recent Videos
-            <span class="badge bg-secondary ms-1" style="font-size:.7rem;">auto-refresh</span>
-          </h6>
-          <a href="{% url 'upload-video' %}" class="btn btn-outline-primary btn-sm">
-            <i class="bi bi-cloud-upload me-1"></i>Upload
-          </a>
+    <div class="section-card mb-4">
+      <div class="section-card-header">
+        <div>
+          <div class="section-kicker"><i class="bi bi-cloud-check"></i> Publishing pipeline</div>
+          <h2 class="section-title">Recent Content</h2>
         </div>
-
-        {% if recent_videos %}
-        <div class="table-responsive">
-          <table class="table table-sm align-middle mb-0" style="font-size:.855rem;" id="video-status-table">
-            <thead class="table-light">
-              <tr>
-                <th>Title</th>
-                <th>Course</th>
-                <th class="text-center">Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for video in recent_videos %}
-              <tr class="video-status-row {% if video.status == 'PROCESSING' or video.status == 'UPLOADED' %}processing-pulse{% endif %}"
-                  id="video-row-{{ video.id }}"
-                  data-video-id="{{ video.id }}"
-                  data-status="{{ video.status }}">
-                <td class="fw-semibold">{{ video.title|truncatechars:32 }}</td>
-                <td class="text-muted">{{ video.course.title|truncatechars:22 }}</td>
-                <td class="text-center">
-                  <span class="badge badge-status-{{ video.status }}"
-                        id="badge-{{ video.id }}">
-                    {{ video.get_status_display }}
-                  </span>
-                </td>
-                <td class="text-end">
-                  <a href="{% url 'video-detail' video.id %}" class="btn btn-link btn-sm p-0 text-primary">
-                    <i class="bi bi-arrow-right-circle"></i>
-                  </a>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% else %}
-        <div class="text-center py-4 text-muted">
-          <i class="bi bi-camera-video-off" style="font-size:2rem;opacity:.4;"></i>
-          <p class="mt-2 mb-1" style="font-size:.875rem;">No videos uploaded yet.</p>
-          <a href="{% url 'upload-video' %}" class="btn btn-primary btn-sm">Upload First Video</a>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- My Courses -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-          <h6 class="fw-bold mb-0"><i class="bi bi-journal-bookmark me-2 text-success"></i>My Courses</h6>
-          <a href="{% url 'create-course' %}" class="btn btn-outline-success btn-sm">
-            <i class="bi bi-plus me-1"></i>New Course
-          </a>
-        </div>
-
-        {% if courses %}
-        <div class="row g-3">
-          {% for course in courses %}
-          <div class="col-sm-6">
-            <div class="p-3 rounded-3 h-100" style="background:#f8f9fb;border:1px solid #e9ecef;">
-              <a href="{% url 'course-detail' course.id %}"
-                 class="fw-semibold text-dark text-decoration-none d-block mb-2"
-                 style="font-size:.88rem;">{{ course.title }}</a>
-              <div class="d-flex gap-2 flex-wrap">
-                <span class="badge bg-light text-dark border" style="font-size:.72rem;">
-                  <i class="bi bi-play-circle me-1"></i>{{ course.videos.count }} video{{ course.videos.count|pluralize }}
-                </span>
-                <span class="badge bg-light text-dark border" style="font-size:.72rem;">
-                  <i class="bi bi-people me-1"></i>{{ course.enrollments.count }} student{{ course.enrollments.count|pluralize }}
-                </span>
-              </div>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="text-center py-4 text-muted">
-          <i class="bi bi-journal-x" style="font-size:2rem;opacity:.4;"></i>
-          <p class="mt-2 mb-0" style="font-size:.875rem;">No courses yet.</p>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Upcoming Sessions -->
-    <div class="card">
-      <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-          <h6 class="fw-bold mb-0">
-            <i class="bi bi-camera-video me-2" style="color:#6f42c1;"></i>Upcoming Doubt Sessions
-          </h6>
-          <a href="{% url 'instructor-sessions' %}" class="btn btn-sm" style="background:#ede7f6;color:#6f42c1;">
-            All Sessions
-          </a>
-        </div>
-
-        {% if upcoming_sessions %}
-        <div class="d-flex flex-column gap-3">
-          {% for session in upcoming_sessions %}
-          <div class="d-flex align-items-center gap-3 p-3 rounded-3" style="background:#f8f9fb;border:1px solid #e9ecef;">
-            <div style="width:40px;height:40px;border-radius:10px;background:#ede7f6;
-                        display:flex;align-items:center;justify-content:center;
-                        color:#6f42c1;font-size:1rem;flex-shrink:0;">
-              <i class="bi bi-person-video3"></i>
-            </div>
-            <div class="flex-grow-1 overflow-hidden">
-              <div class="fw-semibold text-truncate" style="font-size:.875rem;">
-                {{ session.student.get_full_name|default:session.student.username }}
-              </div>
-              <div class="text-muted" style="font-size:.78rem;">
-                {% localtime on %}{{ session.slot.slot_datetime|date:"l, M j @ g:i A" }}{% endlocaltime %}
-              </div>
-            </div>
-            {% if session.meet_url %}
-            <a href="{{ session.meet_url }}" target="_blank"
-               class="btn btn-sm btn-success flex-shrink-0" style="font-size:.78rem;">
-              <i class="bi bi-camera-video me-1"></i>Join
-            </a>
-            {% endif %}
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="text-center py-3 text-muted">
-          <i class="bi bi-calendar-x" style="font-size:1.75rem;opacity:.4;"></i>
-          <p class="mt-2 mb-0" style="font-size:.85rem;">No upcoming sessions.</p>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-
-  </div><!-- /col-lg-8 -->
-
-  <!-- ── Right column ─────────────────────────────────────────────────────── -->
-  <div class="col-lg-4">
-
-    <!-- Quiz Draft Queue -->
-    {% if reviewable_drafts_count %}
-    <div class="card mb-4" style="border-left:4px solid #fd7e14;">
-      <div class="card-body">
-        <div class="d-flex align-items-center gap-3">
-          <div style="width:40px;height:40px;border-radius:10px;background:#fff3e0;
-                      display:flex;align-items:center;justify-content:center;
-                      color:#e65100;font-size:1.1rem;flex-shrink:0;">
-            <i class="bi bi-exclamation-circle"></i>
-          </div>
-          <div>
-            <div class="fw-bold" style="font-size:.95rem;">
-              {{ reviewable_drafts_count }} Draft{{ reviewable_drafts_count|pluralize }} Available
-            </div>
-            <div class="text-muted" style="font-size:.8rem;">
-              {{ pending_drafts_count }} pending, {{ approved_drafts_count }} approved for publish
-            </div>
-          </div>
-        </div>
-        <a href="{% url 'quiz-draft-list' %}" class="btn btn-warning btn-sm mt-3 w-100">
-          <i class="bi bi-patch-check me-1"></i>Open Quiz Drafts
+        <a href="{% url 'upload-video' %}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-cloud-upload me-1"></i>Upload Content
         </a>
       </div>
+
+      {% if recent_videos %}
+      <div class="table-responsive">
+        <table class="table align-middle mb-0" id="video-status-table">
+          <thead class="table-light">
+            <tr>
+              <th>Title</th>
+              <th>Course</th>
+              <th class="text-center">Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for video in recent_videos %}
+            <tr class="content-status-row {% if video.status == 'PROCESSING' or video.status == 'UPLOADED' %}processing-pulse{% endif %}"
+                id="video-row-{{ video.id }}"
+                data-video-id="{{ video.id }}"
+                data-status="{{ video.status }}">
+              <td class="fw-semibold">{{ video.title|truncatechars:32 }}</td>
+              <td class="text-muted">{{ video.course.title|truncatechars:22 }}</td>
+              <td class="text-center">
+                <span class="badge badge-status-{{ video.status }}" id="badge-{{ video.id }}">
+                  {{ video.get_status_display }}
+                </span>
+              </td>
+              <td class="text-end">
+                <a href="{% url 'video-detail' video.id %}" class="btn btn-link btn-sm p-0 text-primary">
+                  <i class="bi bi-arrow-right-circle"></i>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-camera-video-off"></i>
+        <p class="mt-3 mb-2">No content uploaded yet.</p>
+        <a href="{% url 'upload-video' %}" class="btn btn-primary btn-sm">Upload First Content Item</a>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="section-card mb-4">
+      <div class="section-card-header">
+        <div>
+          <div class="section-kicker"><i class="bi bi-journal-richtext"></i> Teaching portfolio</div>
+          <h2 class="section-title">My Courses</h2>
+        </div>
+        <a href="{% url 'create-course' %}" class="btn btn-outline-success btn-sm">
+          <i class="bi bi-plus me-1"></i>New Course
+        </a>
+      </div>
+
+      {% if courses %}
+      <div class="row g-3">
+        {% for course in courses %}
+        <div class="col-sm-6">
+          <div class="list-row-card h-100">
+            <a href="{% url 'course-detail' course.id %}" class="fw-semibold text-dark text-decoration-none d-block mb-2">
+              {{ course.title }}
+            </a>
+            <div class="d-flex gap-2 flex-wrap">
+              <span class="info-chip">
+                <i class="bi bi-play-circle"></i>{{ course.videos.count }} content item{{ course.videos.count|pluralize }}
+              </span>
+              <span class="badge bg-light text-dark border">
+                <i class="bi bi-people me-1"></i>{{ course.enrollments.count }} trainee{{ course.enrollments.count|pluralize }}
+              </span>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-journal-x"></i>
+        <p class="mt-3 mb-0">No courses created yet.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="section-card">
+      <div class="section-card-header">
+        <div>
+          <div class="section-kicker"><i class="bi bi-camera-video"></i> Live support</div>
+          <h2 class="section-title">Upcoming Interactive Sessions</h2>
+        </div>
+        <a href="{% url 'instructor-sessions' %}" class="btn btn-outline-secondary btn-sm">All Sessions</a>
+      </div>
+
+      {% if upcoming_sessions %}
+      <div class="d-flex flex-column gap-3">
+        {% for session in upcoming_sessions %}
+        <div class="list-row-card d-flex align-items-center gap-3 flex-wrap">
+          <div style="width:44px;height:44px;border-radius:14px;background:#ede7f6;display:flex;align-items:center;justify-content:center;color:#6f42c1;font-size:1rem;flex-shrink:0;">
+            <i class="bi bi-person-video3"></i>
+          </div>
+          <div class="flex-grow-1 overflow-hidden">
+            <div class="fw-semibold text-truncate">{{ session.student.get_full_name|default:session.student.username }}</div>
+            <div class="text-muted small">
+              {% localtime on %}{{ session.slot.slot_datetime|date:"l, M j @ g:i A" }}{% endlocaltime %}
+            </div>
+          </div>
+          {% if session.meet_url %}
+          <a href="{{ session.meet_url }}" target="_blank" class="btn btn-success btn-sm flex-shrink-0">
+            <i class="bi bi-camera-video me-1"></i>Join
+          </a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-calendar-x"></i>
+        <p class="mt-3 mb-0">No upcoming interactive sessions.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    {% if reviewable_drafts_count %}
+    <div class="section-card mb-4" style="border-color:rgba(253,126,20,.18);">
+      <div class="d-flex align-items-center gap-3">
+        <div style="width:44px;height:44px;border-radius:14px;background:#fff3e0;display:flex;align-items:center;justify-content:center;color:#e65100;font-size:1.1rem;flex-shrink:0;">
+          <i class="bi bi-exclamation-circle"></i>
+        </div>
+        <div>
+          <div class="fw-bold">{{ reviewable_drafts_count }} Draft{{ reviewable_drafts_count|pluralize }} Ready</div>
+          <div class="text-muted small">{{ pending_drafts_count }} pending, {{ approved_drafts_count }} approved for publish</div>
+        </div>
+      </div>
+      <a href="{% url 'quiz-draft-list' %}" class="btn btn-warning btn-sm mt-3 w-100">
+        <i class="bi bi-patch-check me-1"></i>Open Quiz Drafts
+      </a>
     </div>
     {% endif %}
 
-    <!-- Pending Student Requests -->
-    <div class="card mb-4 {% if pending_requests_count %}border-warning{% endif %}">
-      <div class="card-body">
-        <h6 class="fw-bold mb-3">
-          <i class="bi bi-inbox me-2 text-warning"></i>Student Requests
-        </h6>
-        {% if pending_requests_count %}
-        <div class="text-center text-warning fw-bold mb-2" style="font-size:1.5rem;">
-          {{ pending_requests_count }}
-        </div>
-        <p class="text-muted small text-center mb-3">student{{ pending_requests_count|pluralize }} waiting for time slots</p>
-        {% else %}
-        <p class="text-muted small text-center mb-3">No pending requests.</p>
-        {% endif %}
-        <a href="{% url 'instructor-sessions' %}" class="btn btn-warning btn-sm w-100">
-          <i class="bi bi-calendar-plus me-1"></i>Propose Time Slots
-        </a>
+    <div class="section-card mb-4">
+      <div class="section-kicker"><i class="bi bi-inbox"></i> Action queue</div>
+      <h2 class="section-title mb-2">Pending Trainee Requests</h2>
+      {% if pending_requests_count %}
+      <div class="surface-tile text-center mb-3">
+        <div class="mini-stat-value text-warning">{{ pending_requests_count }}</div>
+        <div class="small text-muted mt-2">trainee{{ pending_requests_count|pluralize }} waiting for time slots</div>
       </div>
+      {% else %}
+      <p class="text-muted small mb-3">No pending requests at the moment.</p>
+      {% endif %}
+      <a href="{% url 'instructor-sessions' %}" class="btn btn-warning btn-sm w-100">
+        <i class="bi bi-calendar-plus me-1"></i>Propose Time Slots
+      </a>
     </div>
 
-    <!-- Google Meet link -->
-    <div class="card">
-      <div class="card-body">
-        <h6 class="fw-bold mb-2"><i class="bi bi-camera-video me-2 text-success"></i>Google Meet</h6>
-        {% if user.google_meet_link %}
-        <p class="text-muted small mb-2">Your personal Meet room:</p>
-        <div class="input-group input-group-sm mb-3">
-          <input type="text" class="form-control" value="{{ user.google_meet_link }}" readonly id="meet-link-input">
-          <button class="btn btn-outline-secondary" type="button"
-                  onclick="navigator.clipboard.writeText(document.getElementById('meet-link-input').value)"
-                  title="Copy">
-            <i class="bi bi-clipboard"></i>
-          </button>
-        </div>
-        <a href="{{ user.google_meet_link }}" target="_blank" class="btn btn-success btn-sm w-100">
-          <i class="bi bi-camera-video me-1"></i>Join My Room
-        </a>
-        {% else %}
-        <p class="text-muted small mb-3">Add your Google Meet link so students can join doubt sessions.</p>
-        <a href="{% url 'profile' %}" class="btn btn-outline-primary btn-sm w-100">
-          <i class="bi bi-link-45deg me-1"></i>Add Meet Link
-        </a>
-        {% endif %}
+    <div class="section-card">
+      <div class="section-kicker"><i class="bi bi-camera-video"></i> Trainer room</div>
+      <h2 class="section-title mb-2">Google Meet</h2>
+      {% if user.google_meet_link %}
+      <p class="text-muted small mb-2">Your personal room is ready for trainees to join interactive sessions.</p>
+      <div class="input-group input-group-sm mb-3">
+        <input type="text" class="form-control" value="{{ user.google_meet_link }}" readonly id="meet-link-input">
+        <button class="btn btn-outline-secondary" type="button"
+                onclick="navigator.clipboard.writeText(document.getElementById('meet-link-input').value)"
+                title="Copy">
+          <i class="bi bi-clipboard"></i>
+        </button>
       </div>
+      <a href="{{ user.google_meet_link }}" target="_blank" class="btn btn-success btn-sm w-100">
+        <i class="bi bi-camera-video me-1"></i>Join My Room
+      </a>
+      {% else %}
+      <p class="text-muted small mb-3">Add your Google Meet link so trainees can join scheduled interactive sessions.</p>
+      <a href="{% url 'profile' %}" class="btn btn-outline-primary btn-sm w-100">
+        <i class="bi bi-link-45deg me-1"></i>Add Meet Link
+      </a>
+      {% endif %}
     </div>
-
-  </div><!-- /col-lg-4 -->
+  </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-/* ── Video status polling every 5s ──────────────────────────────────────────── */
 (function () {
-  const rows = document.querySelectorAll('.video-status-row[data-status="UPLOADED"], .video-status-row[data-status="PROCESSING"]');
+  const rows = document.querySelectorAll('.content-status-row[data-status="UPLOADED"], .content-status-row[data-status="PROCESSING"]');
   if (!rows.length) return;
 
-  const POLL_IDS = [...rows].map(r => r.dataset.videoId);
-  const DONE     = new Set();
+  const pollIds = [...rows].map(row => row.dataset.videoId);
+  const completed = new Set();
 
   function pollOne(id) {
     fetch(`/videos/${id}/status/`)
-      .then(r => r.json())
+      .then(response => response.json())
       .then(data => {
         const badge = document.getElementById('badge-' + id);
-        const row   = document.getElementById('video-row-' + id);
-        if (badge) badge.textContent = data.status_display;
+        const row = document.getElementById('video-row-' + id);
         if (badge) {
+          badge.textContent = data.status_display;
           badge.className = 'badge badge-status-' + data.status;
         }
-        if (data.status === 'READY' || data.status === 'FAILED' || data.status === 'TRANSCRIBED') {
+        if (data.status === 'READY' || data.status === 'FAILED') {
           if (row) row.classList.remove('processing-pulse');
-          DONE.add(id);
+          completed.add(id);
           if (data.status === 'READY') {
             window.lmsNotify && window.lmsNotify(
-              'Video Ready', badge && badge.closest('tr') ? badge.closest('tr').querySelector('td').textContent.trim() : `Video ${id}`, 'success'
+              'Content Ready',
+              badge && badge.closest('tr') ? badge.closest('tr').querySelector('td').textContent.trim() : `Content ${id}`,
+              'success'
             );
           }
         }
@@ -356,11 +332,13 @@
   }
 
   function poll() {
-    POLL_IDS.forEach(id => { if (!DONE.has(id)) pollOne(id); });
-    if (DONE.size < POLL_IDS.length) setTimeout(poll, 5000);
+    pollIds.forEach(id => {
+      if (!completed.has(id)) pollOne(id);
+    });
+    if (completed.size < pollIds.length) setTimeout(poll, 5000);
   }
 
-  setTimeout(poll, 5000);
+  poll();
 })();
 </script>
 {% endblock %}

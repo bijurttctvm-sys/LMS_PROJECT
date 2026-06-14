@@ -18,7 +18,7 @@ def _instructor_required(view_func):
         if not request.user.is_authenticated:
             return redirect('login')
         if request.user.role != User.Role.INSTRUCTOR:
-            messages.error(request, 'Instructor access required.')
+            messages.error(request, 'Trainer access required.')
             return redirect('home')
         return view_func(request, *args, **kwargs)
     wrapper.__name__ = view_func.__name__
@@ -30,7 +30,7 @@ def _student_required(view_func):
         if not request.user.is_authenticated:
             return redirect('login')
         if request.user.role != User.Role.STUDENT:
-            messages.error(request, 'Student access required.')
+            messages.error(request, 'Trainee access required.')
             return redirect('home')
         return view_func(request, *args, **kwargs)
     wrapper.__name__ = view_func.__name__
@@ -78,7 +78,7 @@ def request_session(request):
 
         course = enrollment.course
         if not course.instructor:
-            messages.error(request, 'This course has no assigned instructor yet.')
+            messages.error(request, 'This course has no assigned trainer yet.')
             return redirect('request-session')
 
         DoubtSession.objects.create(
@@ -90,7 +90,7 @@ def request_session(request):
         )
         messages.success(
             request,
-            'Doubt session request submitted. Instructor will propose time slots soon.'
+            'Interactive session request submitted. Your trainer will propose time slots soon.'
         )
         return redirect('my-sessions')
 
@@ -343,7 +343,7 @@ def mark_outcome(request, session_id):
             )
             messages.warning(
                 request,
-                'Session postponed. Please propose 3 new time slots for the student.',
+                'Session postponed. Please propose 3 new time slots for the trainee.',
             )
         else:
             messages.error(request, 'Invalid outcome.')

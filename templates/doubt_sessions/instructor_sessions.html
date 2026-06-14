@@ -1,6 +1,6 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load tz %}
-{% block title %}Doubt Sessions — Instructor{% endblock %}
+{% block title %}Interactive Sessions — Trainer{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -12,20 +12,19 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
-    <h2>Doubt Sessions</h2>
-    <p class="text-muted mb-0">Review student requests and manage your sessions.</p>
+    <h2>Interactive Sessions</h2>
+    <p class="text-muted mb-0">Review trainee requests and manage your live support schedule.</p>
   </div>
   <a href="{% url "instructor-dashboard" %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
 </div>
 
-<!-- Pending Requests -->
 <h5 class="mb-3">
   <i class="bi bi-inbox me-2 text-warning"></i>
   Pending Requests ({{ pending_requests|length }})
 </h5>
 
 {% if not pending_requests %}
-<div class="alert alert-light mb-4">No pending student requests.</div>
+<div class="alert alert-light mb-4">No pending trainee requests.</div>
 {% else %}
 <div class="d-flex flex-column gap-3 mb-5">
   {% for session in pending_requests %}
@@ -59,11 +58,10 @@
 </div>
 {% endif %}
 
-<!-- Awaiting Student Choice -->
 {% if slots_proposed %}
 <h5 class="mb-3">
   <i class="bi bi-hourglass-split me-2 text-info"></i>
-  Awaiting Student Choice ({{ slots_proposed|length }})
+  Awaiting Trainee Choice ({{ slots_proposed|length }})
 </h5>
 <div class="d-flex flex-column gap-2 mb-5">
   {% for session in slots_proposed %}
@@ -84,7 +82,7 @@
             {% endfor %}
           </div>
         </div>
-        <span class="badge bg-info text-dark">Waiting for student</span>
+        <span class="badge bg-info text-dark">Waiting for trainee</span>
       </div>
     </div>
   </div>
@@ -92,7 +90,6 @@
 </div>
 {% endif %}
 
-<!-- Upcoming Confirmed -->
 <h5 class="mb-3">
   <i class="bi bi-calendar-check me-2 text-primary"></i>
   Upcoming Confirmed ({{ upcoming|length }})
@@ -110,7 +107,7 @@
         <div>
           <h6 class="mb-1">{{ session.slot.slot_datetime|date:"l, F j, Y" }} at {{ session.slot.slot_datetime|date:"g:i A" }}</h6>
           <p class="text-muted small mb-1">
-            Student: <strong>{{ session.student.get_full_name|default:session.student.username }}</strong>
+            Trainee: <strong>{{ session.student.get_full_name|default:session.student.username }}</strong>
             &middot; {{ session.student.email|default:"no email" }}
           </p>
           {% if session.course %}<p class="text-muted small mb-1">Course: {{ session.course.title }}</p>{% endif %}
@@ -127,11 +124,11 @@
       </div>
       <div class="outcome-form mt-3 p-3 bg-light rounded" id="outcome-{{ session.id }}">
         <p class="fw-semibold mb-2">What was the outcome of this session?</p>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
           <form method="post" action="{% url "mark-outcome" session.id %}">
             {% csrf_token %}
             <input type="hidden" name="outcome" value="attended">
-            <button type="submit" class="btn btn-success">Student Attended</button>
+            <button type="submit" class="btn btn-success">Trainee Attended</button>
           </form>
           <form method="post" action="{% url "mark-outcome" session.id %}">
             {% csrf_token %}
@@ -142,7 +139,7 @@
           <form method="post" action="{% url "mark-outcome" session.id %}">
             {% csrf_token %}
             <input type="hidden" name="outcome" value="postponed">
-            <button type="submit" class="btn btn-outline-primary">Postponed by Instructor</button>
+            <button type="submit" class="btn btn-outline-primary">Postponed by Trainer</button>
           </form>
           {% endif %}
         </div>
@@ -154,12 +151,11 @@
 </div>
 {% endif %}
 
-<!-- Past Sessions -->
 {% if past %}
 <h5 class="mb-3 text-muted">Past Sessions (last 30)</h5>
 <table class="table table-sm table-hover">
   <thead class="table-light">
-    <tr><th>Date & Time</th><th>Student</th><th>Course</th><th>Outcome</th></tr>
+    <tr><th>Date & Time</th><th>Trainee</th><th>Course</th><th>Outcome</th></tr>
   </thead>
   <tbody>
     {% for session in past %}

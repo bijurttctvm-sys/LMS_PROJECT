@@ -11,8 +11,8 @@ class User(AbstractUser):
 
     class Role(models.TextChoices):
         ADMIN = 'admin', 'Admin'
-        INSTRUCTOR = 'instructor', 'Instructor'
-        STUDENT = 'student', 'Student'
+        INSTRUCTOR = 'instructor', 'Trainer'
+        STUDENT = 'student', 'Trainee'
 
     class Language(models.TextChoices):
         ENGLISH = 'en', 'English'

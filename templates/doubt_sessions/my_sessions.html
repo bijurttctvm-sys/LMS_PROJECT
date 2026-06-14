@@ -1,26 +1,25 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load tz %}
-{% block title %}My Sessions — LMS{% endblock %}
+{% block title %}Interactive Sessions — LMS{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
-    <h2>My Doubt Sessions</h2>
-    <p class="text-muted mb-0">Track your session requests and upcoming meetings.</p>
+    <h2>My Interactive Sessions</h2>
+    <p class="text-muted mb-0">Track your requests, confirmed bookings, and upcoming meetings.</p>
   </div>
   <a href="{% url "request-session" %}" class="btn btn-primary btn-sm">
     <i class="bi bi-plus-circle me-1"></i>New Request
   </a>
 </div>
 
-<!-- Sessions requiring slot choice -->
 {% if choose_sessions %}
 <div class="alert alert-info d-flex align-items-start gap-3 mb-3" role="alert">
   <i class="bi bi-bell-fill flex-shrink-0 mt-1"></i>
   <div>
     <strong>Action required:</strong>
     {% for cs in choose_sessions %}
-    Your instructor proposed time slots for
+    Your trainer proposed time slots for
     {% if cs.course %}<strong>{{ cs.course.title }}</strong>{% else %}your request{% endif %}.
     <a href="{% url "choose-slot" cs.id %}" class="btn btn-info btn-sm ms-2">Choose a Slot</a>
     {% endfor %}
@@ -29,9 +28,9 @@
 {% endif %}
 
 {% if not sessions %}
-<div class="text-center py-5 text-muted">
-  <i class="bi bi-calendar-plus" style="font-size:2.5rem;opacity:.4;"></i>
-  <p class="mt-2">No sessions yet. <a href="{% url "request-session" %}">Request a doubt session.</a></p>
+<div class="empty-state">
+  <i class="bi bi-calendar-plus"></i>
+  <p class="mt-3 mb-0">No sessions yet. <a href="{% url "request-session" %}">Request an interactive session.</a></p>
 </div>
 {% else %}
 <div class="d-flex flex-column gap-3">
@@ -68,7 +67,7 @@
           {% endif %}
           {% if s.status == "postponed" %}
           <p class="text-warning small mb-1">
-            <i class="bi bi-arrow-repeat me-1"></i>Your instructor postponed this session and will share 3 new time slots.
+            <i class="bi bi-arrow-repeat me-1"></i>Your trainer postponed this session and will share 3 new time slots.
           </p>
           {% endif %}
           {% if s.status == "confirmed" and session_meet_link %}
@@ -103,6 +102,6 @@
 {% endif %}
 
 <div class="mt-4">
-  <a href="{% url "student-dashboard" %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+  <a href="{% url "student-dashboard" %}" class="btn btn-outline-secondary btn-sm">Back to Dashboard</a>
 </div>
 {% endblock %}
