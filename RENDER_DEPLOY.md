@@ -43,4 +43,4 @@ python manage.py createsuperuser
 ## Notes
 
 - The Blueprint defaults to the `singapore` region. Change it if your users are elsewhere.
-- `.python-version` pins Render to Python `3.11`, which is a safer target for this project's ML-related dependencies than Render's newer default Python line.
+- `.python-version` pins Render to Python `3.12`, which is compatible with Django 6.0 and stable for deployment.
