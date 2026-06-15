@@ -37,15 +37,21 @@
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold" style="font-size:.875rem;">First Name</label>
-              <input type="text" name="first_name" value="{{ form.first_name.value|default:'' }}" class="form-control">
+              <input type="text" name="first_name" value="{{ form.first_name.value|default:'' }}"
+                     class="form-control {% if form.first_name.errors %}is-invalid{% endif %}">
+              {% for err in form.first_name.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold" style="font-size:.875rem;">Last Name</label>
-              <input type="text" name="last_name" value="{{ form.last_name.value|default:'' }}" class="form-control">
+              <input type="text" name="last_name" value="{{ form.last_name.value|default:'' }}"
+                     class="form-control {% if form.last_name.errors %}is-invalid{% endif %}">
+              {% for err in form.last_name.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
             </div>
             <div class="col-12">
               <label class="form-label fw-semibold" style="font-size:.875rem;">Email</label>
-              <input type="email" name="email" value="{{ form.email.value|default:'' }}" class="form-control">
+              <input type="email" name="email" value="{{ form.email.value|default:'' }}"
+                     class="form-control {% if form.email.errors %}is-invalid{% endif %}">
+              {% for err in form.email.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold" style="font-size:.875rem;">Password <span class="text-danger">*</span></label>

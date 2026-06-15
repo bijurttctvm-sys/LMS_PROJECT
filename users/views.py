@@ -417,7 +417,11 @@ def manage_users_view(request, role):
 @role_required(User.Role.ADMIN)
 @sensitive_post_parameters('password1', 'password2')
 def create_user_view(request):
-    requested_role = (request.GET.get('role') or '').strip().lower()
+    requested_role = (
+        request.GET.get('role')
+        or request.POST.get('role')
+        or ''
+    ).strip().lower()
     role_titles = {
         User.Role.INSTRUCTOR: ('Enroll Trainer', 'Create Trainer Account'),
         User.Role.STUDENT: ('Enroll Trainee', 'Create Trainee Account'),
@@ -430,8 +434,8 @@ def create_user_view(request):
                 request,
                 f'User "{user.username}" ({user.get_role_display()}) created successfully.'
             )
-            if requested_role in _MANAGEABLE_ADMIN_ROLES:
-                return redirect(_management_url_for_role(requested_role))
+            if user.role in _MANAGEABLE_ADMIN_ROLES:
+                return redirect(_management_url_for_role(user.role))
             return redirect('admin-dashboard')
     else:
         initial = {}

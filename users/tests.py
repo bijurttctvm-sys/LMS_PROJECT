@@ -258,6 +258,42 @@ class AdminUserManagementTests(TestCase):
         self.trainer.refresh_from_db()
         self.assertFalse(self.trainer.is_active)
 
+    def test_admin_can_create_student_without_email(self):
+        response = self.client.post(
+            f"{reverse('create-user')}?role={User.Role.STUDENT}",
+            {
+                'role': User.Role.STUDENT,
+                'username': 'new_student',
+                'first_name': 'New',
+                'last_name': 'Student',
+                'email': '',
+                'password1': 'StrongPass123!',
+                'password2': 'StrongPass123!',
+            },
+        )
+
+        self.assertRedirects(response, reverse('manage-users', args=[User.Role.STUDENT]))
+        created_user = User.objects.get(username='new_student')
+        self.assertEqual(created_user.role, User.Role.STUDENT)
+        self.assertEqual(created_user.email, '')
+
+    def test_create_user_view_shows_duplicate_email_error(self):
+        response = self.client.post(
+            f"{reverse('create-user')}?role={User.Role.INSTRUCTOR}",
+            {
+                'role': User.Role.INSTRUCTOR,
+                'username': 'duplicate_email_trainer',
+                'first_name': 'Duplicate',
+                'last_name': 'Trainer',
+                'email': 'trainer@example.com',
+                'password1': 'StrongPass123!',
+                'password2': 'StrongPass123!',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'An account with this email already exists.')
+
 
 class SuperuserRoleTests(TestCase):
     def test_create_superuser_sets_admin_role(self):
