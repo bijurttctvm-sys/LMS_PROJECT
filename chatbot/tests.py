@@ -1,9 +1,9 @@
 import json
 import re
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 
 from courses.models import Course, Enrollment
 from utils.groq_llm import _clean_answer_style
@@ -289,6 +289,43 @@ class ChatbotQueryViewTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 403)
+
+    @override_settings(
+        MODAL_TOKEN_ID='modal-token-id',
+        MODAL_TOKEN_SECRET='modal-token-secret',
+        CHATBOT_EMBEDDINGS_REMOTE_FIRST=True,
+    )
+    def test_query_uses_deployed_modal_lookup_when_remote_embeddings_enabled(self):
+        import utils.embeddings as embeddings
+
+        embeddings._model = None
+        embeddings._remote_embedder = None
+        embeddings._remote_failure_until = 0.0
+
+        fake_chunks = [
+            {"text": "Python is a language", "video_id": 1,
+             "start": 0.0, "end": 5.0, "score": 0.9}
+        ]
+        remote_instance = MagicMock()
+        remote_instance.generate.remote.return_value = [[0.1] * 1024]
+        remote_cls = MagicMock(return_value=remote_instance)
+
+        with patch("modal.Cls.from_name", return_value=remote_cls) as mock_from_name, \
+             patch("utils.embeddings._local_encode", side_effect=AssertionError("local fallback should not run")), \
+             patch("utils.pinecone_client.search_chunks", return_value=fake_chunks), \
+             patch("utils.groq_llm.get_answer", return_value="Python is a general-purpose language."), \
+             patch("utils.redis_cache.get_cached_result", return_value=None), \
+             patch("utils.redis_cache.set_cached_result"):
+            response = self.client.post(
+                "/chatbot/query/",
+                data=json.dumps({"query": "what is python", "course_id": self.course.id}),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        mock_from_name.assert_called_once_with("lms-transcription", "EmbeddingGenerator")
+        remote_cls.assert_called_once_with()
+        remote_instance.generate.remote.assert_called_once()
 
 
 class GroqAnswerStyleTests(TestCase):

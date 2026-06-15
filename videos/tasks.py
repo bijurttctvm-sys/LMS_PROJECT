@@ -677,11 +677,8 @@ def _get_embeddings(video_id, raw_texts):
     """
     # Modal GPU path — fast, preferred for large batches
     try:
-        from modal_functions.transcribe import EmbeddingGenerator
-        embedder = EmbeddingGenerator()
-        # Modal expects "passage: " prefixed texts
-        prefixed = [f"passage: {t}" for t in raw_texts]
-        embeddings = embedder.generate.remote(prefixed)
+        from utils.embeddings import generate_remote_passage_embeddings
+        embeddings = generate_remote_passage_embeddings(raw_texts)
         logger.info('[%s] Embeddings generated via Modal GPU (%d chunks)', video_id, len(raw_texts))
         return embeddings
     except Exception as modal_exc:

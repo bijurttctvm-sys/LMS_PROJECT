@@ -11,6 +11,8 @@ _warmup_started = False
 _remote_failure_until = 0.0
 _MODEL_ID = "intfloat/multilingual-e5-large"
 _BATCH_SIZE = 16   # safe for CPU RAM
+_MODAL_APP_NAME = "lms-transcription"
+_MODAL_EMBEDDING_CLASS_NAME = "EmbeddingGenerator"
 
 
 def _load():
@@ -82,9 +84,13 @@ def _get_remote_embedder():
     if _remote_embedder is not None:
         return _remote_embedder
 
-    from modal_functions.transcribe import EmbeddingGenerator
+    import modal
 
-    _remote_embedder = EmbeddingGenerator()
+    remote_cls = modal.Cls.from_name(
+        _MODAL_APP_NAME,
+        _MODAL_EMBEDDING_CLASS_NAME,
+    )
+    _remote_embedder = remote_cls()
     return _remote_embedder
 
 
@@ -160,3 +166,9 @@ def generate_passage_embeddings(texts: list) -> list:
     """
     prefixed = [f"passage: {t}" for t in texts]
     return _encode(prefixed)
+
+
+def generate_remote_passage_embeddings(texts: list) -> list:
+    """Return passage embeddings via the deployed Modal GPU embedder."""
+    prefixed = [f"passage: {t}" for t in texts]
+    return _remote_encode(prefixed)
