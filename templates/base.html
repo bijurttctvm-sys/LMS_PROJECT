@@ -4,7 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}LMS{% endblock %}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <meta name="keywords" content="{{ seo_keywords }}">
+  <meta name="robots" content="{{ seo_robots }}">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="theme-color" content="#10243f">
+  <link rel="canonical" href="{{ seo_canonical_url }}">
+  <meta property="og:site_name" content="{{ seo_site_name }}">
+  <meta property="og:type" content="{{ seo_og_type }}">
+  <meta property="og:title" content="{{ seo_og_title }}">
+  <meta property="og:description" content="{{ seo_og_description }}">
+  <meta property="og:url" content="{{ seo_canonical_url }}">
+  <meta property="og:image" content="{{ seo_og_image_url|default:seo_default_image_url }}">
+  <meta property="og:image:alt" content="Learning Management Platform logo">
+  <meta property="og:locale" content="{{ seo_locale }}">
+  <meta name="twitter:card" content="{{ seo_twitter_card }}">
+  <meta name="twitter:title" content="{{ seo_og_title }}">
+  <meta name="twitter:description" content="{{ seo_og_description }}">
+  <meta name="twitter:image" content="{{ seo_og_image_url|default:seo_default_image_url }}">
   <link rel="icon" type="image/png" href="/static/branding/lms-favicon.png">
+  {% if seo_json_ld %}
+  <script type="application/ld+json">{{ seo_json_ld|safe }}</script>
+  {% endif %}
 
   <!-- Bootstrap 5 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
@@ -1280,6 +1301,20 @@
   <div class="sidebar-section">
     <span class="sidebar-label">Learning</span>
     <ul class="sidebar-nav">
+      <li>
+        {% if chatbot_enrolled %}
+        <a href="{% url 'student-dashboard' %}"
+           onclick="chatOpenPanel(); return false;"
+           title="Open Learning Assistant">
+          <span class="nav-icon"><i class="bi bi-chat-dots"></i></span>Learning Assistant
+        </a>
+        {% else %}
+        <a href="{% url 'course-list' %}" title="Enroll in a course to unlock the assistant">
+          <span class="nav-icon"><i class="bi bi-chat-dots"></i></span>Learning Assistant
+          <span class="nav-badge badge text-bg-secondary">Locked</span>
+        </a>
+        {% endif %}
+      </li>
       <li><a href="{% url 'student-quiz-list' %}"><span class="nav-icon"><i class="bi bi-question-circle"></i></span>Quizzes</a></li>
       <li><a href="{% url 'request-session' %}"><span class="nav-icon"><i class="bi bi-calendar-check"></i></span>Request Interactive Session</a></li>
       <li><a href="{% url 'my-sessions' %}"><span class="nav-icon"><i class="bi bi-camera-video"></i></span>Interactive Sessions</a></li>
@@ -1574,6 +1609,24 @@ function chatToggle() {
   const icon  = document.getElementById('chat-toggle-icon');
   panel.classList.toggle('open', chatOpen);
   icon.className = chatOpen ? 'bi bi-x-lg' : 'bi bi-chat-dots-fill';
+}
+function chatOpenPanel() {
+  const panel = document.getElementById('chat-panel');
+  const icon = document.getElementById('chat-toggle-icon');
+  const input = document.getElementById('chat-input');
+  if (!panel || !icon) return;
+
+  chatOpen = true;
+  panel.classList.add('open');
+  icon.className = 'bi bi-x-lg';
+
+  if (sidebar && overlay) {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('open');
+  }
+  if (input) {
+    input.focus();
+  }
 }
 function chatClose() {
   chatOpen = false;

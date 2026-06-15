@@ -1,3 +1,5 @@
+import json
+
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -99,10 +101,132 @@ def _managed_user_has_related_records(user):
     return False
 
 
+def _marketing_home_context(request):
+    home_url = request.build_absolute_uri(reverse('home'))
+    login_url = request.build_absolute_uri(reverse('login'))
+    register_url = request.build_absolute_uri(reverse('register'))
+    title = 'AI-Powered Multilingual LMS for Trainers and Trainees | Learning Management Platform'
+    description = (
+        'Launch multilingual training programs with AI-assisted quizzes, course delivery, '
+        'trainer workflows, trainee dashboards, and guided learning support from one LMS.'
+    )
+    keywords = (
+        'AI learning management system, multilingual LMS, trainee training software, '
+        'trainer dashboard, quiz generation platform, learning assistant LMS, course delivery'
+    )
+    schema = {
+        '@context': 'https://schema.org',
+        '@graph': [
+            {
+                '@type': 'Organization',
+                '@id': f'{home_url}#organization',
+                'name': 'Learning Management Platform',
+                'url': home_url,
+                'logo': request.build_absolute_uri('/static/branding/lms-platform-mark.png'),
+            },
+            {
+                '@type': 'WebSite',
+                '@id': f'{home_url}#website',
+                'url': home_url,
+                'name': 'Learning Management Platform',
+                'inLanguage': ['en-IN', 'ml-IN'],
+            },
+            {
+                '@type': 'SoftwareApplication',
+                '@id': f'{home_url}#application',
+                'name': 'Learning Management Platform',
+                'applicationCategory': 'EducationalApplication',
+                'operatingSystem': 'Web',
+                'url': home_url,
+                'description': description,
+                'featureList': [
+                    'AI-generated quizzes from study material',
+                    'Learning Assistant with multilingual support',
+                    'Trainer dashboards for course operations',
+                    'Trainee dashboards for progress and sessions',
+                    'Interactive session scheduling and guidance',
+                ],
+                'audience': {
+                    '@type': 'Audience',
+                    'audienceType': 'Trainers, trainees, and learning administrators',
+                },
+            },
+            {
+                '@type': 'FAQPage',
+                '@id': f'{home_url}#faq',
+                'mainEntity': [
+                    {
+                        '@type': 'Question',
+                        'name': 'Who can use this learning management platform?',
+                        'acceptedAnswer': {
+                            '@type': 'Answer',
+                            'text': (
+                                'The platform is designed for administrators, trainers, and trainees '
+                                'who need a structured multilingual training workspace.'
+                            ),
+                        },
+                    },
+                    {
+                        '@type': 'Question',
+                        'name': 'What makes the LMS different from a basic course portal?',
+                        'acceptedAnswer': {
+                            '@type': 'Answer',
+                            'text': (
+                                'It combines course delivery, AI-assisted quiz generation, a learning '
+                                'assistant, and interactive trainer support in one workflow.'
+                            ),
+                        },
+                    },
+                    {
+                        '@type': 'Question',
+                        'name': 'Does the platform support multilingual learning?',
+                        'acceptedAnswer': {
+                            '@type': 'Answer',
+                            'text': (
+                                'Yes. The LMS is built for English and Malayalam learning experiences '
+                                'with multilingual assistance in the study workflow.'
+                            ),
+                        },
+                    },
+                ],
+            },
+        ],
+    }
+    return {
+        'seo_title': title,
+        'seo_description': description,
+        'seo_keywords': keywords,
+        'seo_robots': 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1',
+        'seo_canonical_url': home_url,
+        'seo_og_type': 'website',
+        'seo_og_title': title,
+        'seo_og_description': description,
+        'seo_og_image_url': request.build_absolute_uri('/static/branding/lms-platform-mark.png'),
+        'seo_json_ld': json.dumps(schema),
+        'marketing_login_url': login_url,
+        'marketing_register_url': register_url,
+    }
+
+
+def _auth_page_seo_context(request, route_name, title, description):
+    page_url = request.build_absolute_uri(reverse(route_name))
+    return {
+        'seo_title': title,
+        'seo_description': description,
+        'seo_keywords': 'secure LMS login, LMS registration, trainee portal access, trainer portal access',
+        'seo_robots': 'noindex,follow',
+        'seo_canonical_url': page_url,
+        'seo_og_type': 'website',
+        'seo_og_title': title,
+        'seo_og_description': description,
+        'seo_og_image_url': request.build_absolute_uri('/static/branding/lms-platform-mark.png'),
+    }
+
+
 def home_view(request):
     if request.user.is_authenticated:
         return redirect(_role_home(request.user))
-    return redirect('login')
+    return render(request, 'marketing/home.html', _marketing_home_context(request))
 
 
 @never_cache
@@ -118,7 +242,14 @@ def register_view(request):
             return redirect('login')
     else:
         form = RegisterForm()
-    return render(request, 'users/register.html', {'form': form})
+    context = {'form': form}
+    context.update(_auth_page_seo_context(
+        request,
+        'register',
+        'Register | Learning Management Platform',
+        'Create a secure account for the multilingual learning management platform.',
+    ))
+    return render(request, 'users/register.html', context)
 
 
 @never_cache
@@ -136,7 +267,14 @@ def login_view(request):
                 'Too many failed login attempts. '
                 f'Please try again in {_format_lockout_duration(remaining_seconds)}.'
             )
-            return render(request, 'users/login.html')
+            context = {}
+            context.update(_auth_page_seo_context(
+                request,
+                'login',
+                'Login | Learning Management Platform',
+                'Secure trainee, trainer, and admin login for the learning management platform.',
+            ))
+            return render(request, 'users/login.html', context)
 
         user = authenticate(request, username=username, password=password)
         if user is not None:
@@ -153,7 +291,14 @@ def login_view(request):
             )
         else:
             messages.error(request, 'Invalid username or password.')
-    return render(request, 'users/login.html')
+    context = {}
+    context.update(_auth_page_seo_context(
+        request,
+        'login',
+        'Login | Learning Management Platform',
+        'Secure trainee, trainer, and admin login for the learning management platform.',
+    ))
+    return render(request, 'users/login.html', context)
 
 
 @require_POST

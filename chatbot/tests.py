@@ -410,6 +410,9 @@ class LearningAssistantVoiceInputTests(TestCase):
         self.assertContains(response, "chatCancelRequest")
         self.assertContains(response, "AbortController")
         self.assertContains(response, "language:  chatLang")
+        self.assertContains(response, "Learning Assistant")
+        self.assertContains(response, "chatOpenPanel(); return false;")
+        self.assertContains(response, "function chatOpenPanel()")
 
     def test_student_dashboard_renders_chatbot_csrf_token_for_ajax(self):
         csrf_client = Client(enforce_csrf_checks=True)

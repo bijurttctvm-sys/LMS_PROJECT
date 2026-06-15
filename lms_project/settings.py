@@ -137,6 +137,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'lms_project.context_processors.seo_defaults',
                 'chatbot.context_processors.learning_assistant_context',
             ],
         },

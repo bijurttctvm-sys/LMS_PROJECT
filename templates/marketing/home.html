@@ -1,0 +1,447 @@
+{% extends "base.html" %}
+{% block title %}AI-Powered Multilingual LMS for Trainers and Trainees | Learning Management Platform{% endblock %}
+{% block content_class %}marketing-page{% endblock %}
+
+{% block extra_head %}
+<style>
+  .lms-content.marketing-page {
+    padding: 1.5rem 1.25rem 2.5rem;
+  }
+  .marketing-shell {
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  .marketing-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+    padding: .95rem 1.1rem;
+    border-radius: 24px;
+    background: rgba(255,255,255,.78);
+    border: 1px solid rgba(15,23,42,.08);
+    box-shadow: 0 18px 48px rgba(15,23,42,.08);
+    backdrop-filter: blur(16px);
+  }
+  .marketing-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: .9rem;
+    text-decoration: none;
+    color: #0f172a;
+  }
+  .marketing-brand img {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    object-fit: contain;
+    padding: 4px;
+    background: linear-gradient(180deg, rgba(15,23,42,.06), rgba(15,23,42,.01));
+    box-shadow: 0 14px 26px rgba(15,23,42,.08);
+  }
+  .marketing-brand strong {
+    display: block;
+    font-family: "Inter", "Segoe UI", sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: -.02em;
+  }
+  .marketing-brand span {
+    display: block;
+    font-size: .78rem;
+    color: #5b6477;
+  }
+  .marketing-links {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    flex-wrap: wrap;
+  }
+  .marketing-links a {
+    color: #1f3f66;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: .92rem;
+  }
+  .marketing-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 34px;
+    padding: 2.4rem;
+    background:
+      radial-gradient(circle at top left, rgba(255,255,255,.18), transparent 28%),
+      linear-gradient(135deg, #08131f 0%, #10243f 38%, #0f766e 100%);
+    color: #fff;
+    box-shadow: 0 36px 80px rgba(8,19,31,.2);
+  }
+  .marketing-hero::after {
+    content: "";
+    position: absolute;
+    right: -80px;
+    bottom: -90px;
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.22) 0%, rgba(255,255,255,0) 70%);
+    pointer-events: none;
+  }
+  .marketing-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    margin-bottom: 1rem;
+    padding: .5rem .82rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.14);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .marketing-title {
+    max-width: 780px;
+    margin: 0;
+    font-size: clamp(2.3rem, 5vw, 4.5rem);
+    line-height: .98;
+    font-weight: 800;
+    letter-spacing: -.04em;
+  }
+  .marketing-copy {
+    max-width: 720px;
+    margin: 1.15rem 0 0;
+    font-size: 1rem;
+    color: rgba(226,232,240,.9);
+  }
+  .marketing-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .8rem;
+    margin-top: 1.6rem;
+  }
+  .marketing-actions .btn {
+    border-radius: 999px;
+    padding-inline: 1.1rem;
+    font-weight: 700;
+  }
+  .marketing-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1.8rem;
+  }
+  .marketing-metric {
+    padding: 1rem 1.1rem;
+    border-radius: 20px;
+    background: rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.12);
+    backdrop-filter: blur(10px);
+  }
+  .marketing-metric strong {
+    display: block;
+    font-size: 1.5rem;
+    line-height: 1;
+    font-weight: 800;
+  }
+  .marketing-metric span {
+    display: block;
+    margin-top: .45rem;
+    color: rgba(226,232,240,.82);
+    font-size: .82rem;
+  }
+  .marketing-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(280px, .8fr);
+    gap: 1.25rem;
+    margin-top: 1.25rem;
+  }
+  .marketing-panel,
+  .marketing-feature,
+  .marketing-faq-item {
+    border-radius: 26px;
+    background: rgba(255,255,255,.86);
+    border: 1px solid rgba(15,23,42,.08);
+    box-shadow: 0 18px 46px rgba(15,23,42,.08);
+    backdrop-filter: blur(14px);
+  }
+  .marketing-panel {
+    padding: 1.5rem;
+  }
+  .marketing-section {
+    margin-top: 1.25rem;
+  }
+  .marketing-section h2 {
+    margin: 0 0 .8rem;
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -.03em;
+  }
+  .marketing-section p {
+    color: #526074;
+    margin-bottom: 0;
+  }
+  .marketing-points {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .9rem;
+    margin-top: 1rem;
+  }
+  .marketing-point {
+    padding: 1rem 1.05rem;
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(240,247,255,.94));
+    border: 1px solid rgba(15,23,42,.06);
+  }
+  .marketing-point strong {
+    display: block;
+    margin-bottom: .35rem;
+    font-size: .95rem;
+  }
+  .marketing-point p {
+    margin: 0;
+    font-size: .88rem;
+    color: #5b6477;
+  }
+  .marketing-stack {
+    display: grid;
+    gap: 1rem;
+  }
+  .marketing-feature {
+    padding: 1.2rem 1.25rem;
+  }
+  .marketing-feature span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    margin-bottom: .9rem;
+    background: linear-gradient(135deg, #dbeafe, #dcfce7);
+    color: #0f766e;
+    font-size: 1.1rem;
+  }
+  .marketing-feature h3 {
+    margin: 0 0 .4rem;
+    font-size: 1.02rem;
+    font-weight: 700;
+  }
+  .marketing-feature p {
+    margin: 0;
+    color: #5b6477;
+    font-size: .9rem;
+  }
+  .marketing-faq {
+    display: grid;
+    gap: .9rem;
+    margin-top: 1rem;
+  }
+  .marketing-faq-item {
+    padding: 1.15rem 1.2rem;
+  }
+  .marketing-faq-item h3 {
+    margin: 0 0 .4rem;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  .marketing-faq-item p {
+    margin: 0;
+    color: #5b6477;
+  }
+  .marketing-cta {
+    margin-top: 1.25rem;
+    padding: 1.4rem 1.5rem;
+    border-radius: 28px;
+    background: linear-gradient(135deg, #fff7ed, #ecfeff);
+    border: 1px solid rgba(15,23,42,.08);
+    box-shadow: 0 18px 46px rgba(15,23,42,.08);
+  }
+  .marketing-cta h2 {
+    margin: 0 0 .4rem;
+    font-size: 1.45rem;
+    font-weight: 800;
+  }
+  .marketing-cta p {
+    margin: 0;
+    color: #5b6477;
+  }
+  .marketing-footer {
+    margin-top: 1.1rem;
+    color: #6b7280;
+    font-size: .84rem;
+    text-align: center;
+  }
+  @media (max-width: 991px) {
+    .marketing-grid,
+    .marketing-points {
+      grid-template-columns: 1fr;
+    }
+    .marketing-metrics {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 767px) {
+    .marketing-nav,
+    .marketing-hero {
+      padding: 1.2rem;
+      border-radius: 24px;
+    }
+    .marketing-title {
+      font-size: 2.3rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="marketing-shell">
+  <nav class="marketing-nav" aria-label="Primary">
+    <a class="marketing-brand" href="{% url 'home' %}">
+      <img src="/static/branding/lms-platform-mark.png" alt="Learning Management Platform logo">
+      <span>
+        <strong>Learning Management Platform</strong>
+        <span>AI-assisted multilingual training workspace</span>
+      </span>
+    </a>
+    <div class="marketing-links">
+      <a href="#features">Features</a>
+      <a href="#why-lms">Why this LMS</a>
+      <a href="#faq">FAQ</a>
+      <a href="{% url 'login' %}" class="btn btn-outline-primary btn-sm">Login</a>
+      <a href="{% url 'register' %}" class="btn btn-primary btn-sm">Register</a>
+    </div>
+  </nav>
+
+  <section class="marketing-hero" aria-labelledby="marketing-home-title">
+    <div class="marketing-kicker">
+      <i class="bi bi-stars"></i>
+      Search-optimized AI LMS
+    </div>
+    <h1 class="marketing-title" id="marketing-home-title">
+      AI-powered multilingual learning management system for structured training programs.
+    </h1>
+    <p class="marketing-copy">
+      Deliver courses, trainer workflows, trainee dashboards, interactive support sessions, quiz generation, and a learning assistant from one modern LMS built for English and Malayalam learning journeys.
+    </p>
+    <div class="marketing-actions">
+      <a href="{% url 'register' %}" class="btn btn-light">Start With the Platform</a>
+      <a href="{% url 'login' %}" class="btn btn-outline-light">Access Your Workspace</a>
+      <a href="#features" class="btn btn-outline-light">Explore SEO-ready Features</a>
+    </div>
+    <div class="marketing-metrics" aria-label="Platform highlights">
+      <div class="marketing-metric">
+        <strong>3 roles</strong>
+        <span>Admin, trainer, and trainee workflows in one shared LMS.</span>
+      </div>
+      <div class="marketing-metric">
+        <strong>2 languages</strong>
+        <span>English and Malayalam support across the learning experience.</span>
+      </div>
+      <div class="marketing-metric">
+        <strong>AI first</strong>
+        <span>Quiz generation and guided learning assistance from study material.</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="marketing-grid marketing-section" id="why-lms">
+    <section class="marketing-panel" aria-labelledby="marketing-why-title">
+      <h2 id="marketing-why-title">Advanced SEO plus product clarity for a discoverable LMS</h2>
+      <p>
+        This public landing page gives search engines a clear indexable entry point while private learning dashboards remain protected from indexing. That separation helps the platform rank for learning management system queries without leaking trainee-only pages into search results.
+      </p>
+      <div class="marketing-points">
+        <article class="marketing-point">
+          <strong>Semantic page structure</strong>
+          <p>Clear headings, descriptive copy, and internal anchors help search engines understand the purpose of the LMS.</p>
+        </article>
+        <article class="marketing-point">
+          <strong>Technical crawl control</strong>
+          <p>Canonical URLs, robots directives, and XML sitemap coverage keep indexing focused on the right pages.</p>
+        </article>
+        <article class="marketing-point">
+          <strong>Schema-ready markup</strong>
+          <p>Structured data describes the platform as a web-based educational application and answers high-intent FAQs.</p>
+        </article>
+        <article class="marketing-point">
+          <strong>Conversion-focused copy</strong>
+          <p>Keyword-rich messaging still reads naturally for people choosing an LMS for trainers and trainees.</p>
+        </article>
+      </div>
+    </section>
+
+    <aside class="marketing-stack" id="features" aria-label="Platform features">
+      <article class="marketing-feature">
+        <span><i class="bi bi-journal-check"></i></span>
+        <h3>AI quiz generation</h3>
+        <p>Create quizzes from uploaded study material and keep assessments tightly aligned with course content.</p>
+      </article>
+      <article class="marketing-feature">
+        <span><i class="bi bi-chat-dots"></i></span>
+        <h3>Learning Assistant</h3>
+        <p>Offer guided question answering for trainees using course-aware retrieval and multilingual responses.</p>
+      </article>
+      <article class="marketing-feature">
+        <span><i class="bi bi-calendar2-week"></i></span>
+        <h3>Interactive support sessions</h3>
+        <p>Let trainees request trainer help and coordinate live learning touchpoints from inside the LMS.</p>
+      </article>
+    </aside>
+  </div>
+
+  <section class="marketing-panel marketing-section" aria-labelledby="marketing-journey-title">
+    <h2 id="marketing-journey-title">What this multilingual learning management platform is built for</h2>
+    <div class="marketing-points">
+      <article class="marketing-point">
+        <strong>Training organizations</strong>
+        <p>Run instructor-led or self-paced programs with clear admin oversight, organized content, and learner-specific access.</p>
+      </article>
+      <article class="marketing-point">
+        <strong>Course operations teams</strong>
+        <p>Manage content publishing, role-based dashboards, enrollment workflows, and quiz approvals from a single system.</p>
+      </article>
+      <article class="marketing-point">
+        <strong>Trainer-led cohorts</strong>
+        <p>Support batches of trainees with course materials, quizzes, and instructor follow-up without fragmented tools.</p>
+      </article>
+      <article class="marketing-point">
+        <strong>AI-enhanced education workflows</strong>
+        <p>Use machine assistance where it helps most: content-to-quiz conversion and study support grounded in course material.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="marketing-section" id="faq" aria-labelledby="marketing-faq-title">
+    <h2 id="marketing-faq-title">Frequently asked questions about the LMS</h2>
+    <div class="marketing-faq">
+      <article class="marketing-faq-item">
+        <h3>Can the platform support both trainers and trainees?</h3>
+        <p>Yes. The LMS uses role-based dashboards so administrators, trainers, and trainees each get a focused workflow.</p>
+      </article>
+      <article class="marketing-faq-item">
+        <h3>Is the learning assistant tied to course content?</h3>
+        <p>Yes. The assistant is designed to answer trainee questions using indexed study material from enrolled courses.</p>
+      </article>
+      <article class="marketing-faq-item">
+        <h3>Why keep dashboards out of search results?</h3>
+        <p>Private training pages should stay secure and low-noise, so the SEO strategy indexes the public homepage while marking user workspaces as non-indexable.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="marketing-cta" aria-labelledby="marketing-cta-title">
+    <h2 id="marketing-cta-title">Bring course delivery, quizzes, and guided support into one LMS</h2>
+    <p>
+      Sign in to continue your training workflow, or create an account to start using the AI-powered learning management platform.
+    </p>
+    <div class="marketing-actions">
+      <a href="{% url 'login' %}" class="btn btn-outline-primary">Login</a>
+      <a href="{% url 'register' %}" class="btn btn-primary">Register</a>
+    </div>
+  </section>
+
+  <div class="marketing-footer">
+    Public SEO landing page for the Learning Management Platform. Secure role-based learning areas stay private after login.
+  </div>
+</div>
+{% endblock %}

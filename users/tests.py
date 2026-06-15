@@ -319,3 +319,70 @@ class SuperuserRoleTests(TestCase):
         user.refresh_from_db()
 
         self.assertEqual(user.role, User.Role.ADMIN)
+
+
+class PublicSeoTests(TestCase):
+    def test_home_page_renders_indexable_marketing_landing_page(self):
+        response = self.client.get(reverse('home'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'AI-powered multilingual learning management system for structured training programs.',
+        )
+        self.assertContains(
+            response,
+            '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">',
+            html=True,
+        )
+        self.assertContains(
+            response,
+            '<link rel="canonical" href="http://testserver/">',
+            html=True,
+        )
+        self.assertContains(response, '"@type": "SoftwareApplication"')
+        self.assertContains(response, 'Advanced SEO plus product clarity for a discoverable LMS')
+
+    def test_authenticated_home_redirects_to_role_dashboard(self):
+        student = User.objects.create_user(
+            username='seo-student',
+            password='StrongPass123!',
+            role=User.Role.STUDENT,
+        )
+        self.client.force_login(student)
+
+        response = self.client.get(reverse('home'))
+
+        self.assertRedirects(response, reverse('student-dashboard'))
+
+    def test_login_page_uses_noindex_follow(self):
+        response = self.client.get(reverse('login'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            '<meta name="robots" content="noindex,follow">',
+            html=True,
+        )
+        self.assertContains(
+            response,
+            '<link rel="canonical" href="http://testserver/users/login/">',
+            html=True,
+        )
+
+    def test_robots_txt_points_to_sitemap_and_blocks_private_routes(self):
+        response = self.client.get(reverse('robots-txt'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/plain')
+        self.assertContains(response, 'Sitemap: http://testserver/sitemap.xml')
+        self.assertContains(response, 'Disallow: /student-dashboard/')
+        self.assertContains(response, 'Disallow: /users/')
+
+    def test_sitemap_xml_lists_home_page(self):
+        response = self.client.get(reverse('sitemap-xml'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/xml')
+        self.assertContains(response, '<loc>http://testserver/</loc>')
+        self.assertContains(response, '<changefreq>weekly</changefreq>')

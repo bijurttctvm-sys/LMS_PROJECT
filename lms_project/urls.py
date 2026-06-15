@@ -3,11 +3,14 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+from lms_project import views as site_views
 from users import views as user_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', user_views.home_view, name='home'),
+    path('robots.txt', site_views.robots_txt, name='robots-txt'),
+    path('sitemap.xml', site_views.sitemap_xml, name='sitemap-xml'),
     path('users/', include('users.urls')),
     path('student-dashboard/', user_views.student_dashboard, name='student-dashboard'),
     path('admin-dashboard/', user_views.admin_dashboard, name='admin-dashboard'),
