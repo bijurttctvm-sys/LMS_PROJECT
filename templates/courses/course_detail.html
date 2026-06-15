@@ -84,11 +84,27 @@
     <i class="bi bi-hourglass-split flex-shrink-0"></i>
     <span>Your course access request is pending admin approval.</span>
   </div>
+  {% if access_request.request_reason %}
+  <div class="card border-info mt-3">
+    <div class="card-body py-3">
+      <div class="fw-semibold small text-uppercase text-muted mb-2">Reason Submitted</div>
+      <p class="mb-0 small">{{ access_request.request_reason|linebreaksbr }}</p>
+    </div>
+  </div>
+  {% endif %}
   {% elif access_request and access_request.status == 'rejected' %}
   <div class="alert alert-warning py-2 d-flex align-items-center gap-2">
     <i class="bi bi-exclamation-triangle flex-shrink-0"></i>
     <span>Your previous access request was declined. You can submit a fresh request below.</span>
   </div>
+  {% if access_request.admin_note %}
+  <div class="card border-warning mt-3">
+    <div class="card-body py-3">
+      <div class="fw-semibold small text-uppercase text-muted mb-2">Admin Note</div>
+      <p class="mb-0 small">{{ access_request.admin_note|linebreaksbr }}</p>
+    </div>
+  </div>
+  {% endif %}
   {% else %}
   <div class="alert alert-warning py-2 d-flex align-items-center gap-2">
     <i class="bi bi-lock-fill flex-shrink-0"></i>
@@ -130,6 +146,21 @@
       {% else %}
         <form method="post" action="{% url 'request-course-access' course.id %}">
           {% csrf_token %}
+          <div class="mb-3 text-start">
+            <label for="request-reason" class="form-label fw-semibold">Why do you need this course?</label>
+            <textarea
+              name="request_reason"
+              id="request-reason"
+              rows="4"
+              class="form-control {% if access_request_form and access_request_form.request_reason.errors %}is-invalid{% endif %}"
+              placeholder="Tell the admin why you need access to this course.">{{ access_request_form.request_reason.value|default_if_none:'' }}</textarea>
+            <div class="form-text">{{ access_request_form.request_reason.help_text }}</div>
+            {% if access_request_form and access_request_form.request_reason.errors %}
+              {% for err in access_request_form.request_reason.errors %}
+                <div class="invalid-feedback d-block">{{ err }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
           <button type="submit" class="btn btn-success btn-sm">
             <i class="bi bi-person-check me-1"></i>
             {% if access_request and access_request.status == 'rejected' %}Request Again{% else %}Request Course Access{% endif %}

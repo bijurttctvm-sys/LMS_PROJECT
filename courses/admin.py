@@ -21,7 +21,15 @@ class EnrollmentAdmin(admin.ModelAdmin):
 
 @admin.register(EnrollmentRequest)
 class EnrollmentRequestAdmin(admin.ModelAdmin):
-    list_display = ('student', 'course', 'status', 'requested_at', 'reviewed_by', 'reviewed_at')
+    list_display = (
+        'student',
+        'course',
+        'status',
+        'requested_at',
+        'reviewed_by',
+        'reviewed_at',
+    )
     list_filter = ('status', 'course')
     search_fields = ('student__username', 'student__email', 'course__title')
     raw_id_fields = ('student', 'course', 'reviewed_by')
+    readonly_fields = ('request_reason', 'admin_note')

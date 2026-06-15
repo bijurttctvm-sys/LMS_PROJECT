@@ -24,6 +24,13 @@ This repo includes a `render.yaml` Blueprint for Render.
    - `EMAIL_*` values if you want real email delivery
    - `CLOUDFLARE_R2_*` values if you want shared object storage
 
+## Important: avoid duplicate stacks
+
+- This Blueprint creates exactly 4 Render resources: `lmsproject-web`, `lmsproject-worker`, `lmsproject-redis`, and `lmsproject-db`.
+- If you create a new Blueprint again for the same repo, Render may create another copy of the stack and append a suffix such as `-2nla` or `-mfjs` when the original names are already taken.
+- To update an existing deployment, open the existing Blueprint or services in Render and sync/redeploy that stack instead of creating a brand-new Blueprint.
+- If duplicates already exist, keep the stack you want and delete the extra web/worker/redis/db copies from the Render dashboard.
+
 ## Media storage behavior
 
 - Profile pictures and local media use the Render persistent disk mounted at `/var/data`.
@@ -42,5 +49,5 @@ python manage.py createsuperuser
 
 ## Notes
 
-- The Blueprint defaults to the `singapore` region. Change it if your users are elsewhere.
+- The Blueprint currently defaults to the `oregon` region. Change it in `render.yaml` if your users are elsewhere before creating the Blueprint.
 - `.python-version` pins Render to Python `3.12`, which is compatible with Django 6.0 and stable for deployment.

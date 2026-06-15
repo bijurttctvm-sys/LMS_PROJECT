@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 
 from users.decorators import role_required
 from users.models import User
-from .forms import BatchForm, CourseForm
+from .forms import BatchForm, CourseForm, EnrollmentRequestForm
 from .models import Batch, BatchCourse, BatchStudent, Course, Enrollment, EnrollmentRequest
 
 logger = logging.getLogger(__name__)
@@ -84,6 +84,53 @@ def _attach_student_access_request_status(student, courses):
     return courses
 
 
+def _build_course_detail_context(request, course, access_request_form=None):
+    enrolled = (
+        request.user.role == User.Role.STUDENT
+        and Enrollment.objects.filter(
+            student=request.user, course=course, is_active=True
+        ).exists()
+    )
+    access_request = None
+    if request.user.role == User.Role.STUDENT and not enrolled:
+        access_request = (
+            EnrollmentRequest.objects
+            .filter(student=request.user, course=course)
+            .select_related('reviewed_by')
+            .first()
+        )
+    trainee_count = Enrollment.objects.filter(course=course, is_active=True).count()
+    if request.user.role == User.Role.STUDENT and not enrolled:
+        videos = course.videos.none()
+        video_count = course.videos.count()
+    else:
+        videos = course.videos.prefetch_related('quizzes')
+        video_count = videos.count()
+
+    course_locked = False
+    if request.user.role == User.Role.INSTRUCTOR:
+        if videos.exists() and videos.first().english_transcript:
+            course_locked = True
+
+    if request.user.role == User.Role.STUDENT and not enrolled and access_request_form is None:
+        form_instance = access_request if access_request and access_request.status != EnrollmentRequest.Status.PENDING else None
+        access_request_form = EnrollmentRequestForm(instance=form_instance)
+
+    return {
+        'course': course,
+        'videos': videos,
+        'video_count': video_count,
+        'trainee_count': trainee_count,
+        'enrolled': enrolled,
+        'access_request': access_request,
+        'access_request_form': access_request_form,
+        'course_locked': course_locked,
+        'chatbot_course_id': course.id if enrolled else 0,
+        'chatbot_courses': [{'id': course.id, 'title': course.title}] if enrolled else [],
+        'chatbot_enrolled': enrolled,
+    }
+
+
 @login_required
 def course_list(request):
     courses = Course.objects.filter(is_active=True).select_related('instructor')
@@ -125,47 +172,7 @@ def course_detail(request, course_id):
     if request.user.role == User.Role.INSTRUCTOR and course.instructor_id != request.user.id:
         messages.error(request, 'You do not have permission to view that course.')
         return redirect('course-list')
-
-    enrolled = (
-        request.user.role == User.Role.STUDENT
-        and Enrollment.objects.filter(
-            student=request.user, course=course, is_active=True
-        ).exists()
-    )
-    access_request = None
-    if request.user.role == User.Role.STUDENT and not enrolled:
-        access_request = (
-            EnrollmentRequest.objects
-            .filter(student=request.user, course=course)
-            .select_related('reviewed_by')
-            .first()
-        )
-    trainee_count = Enrollment.objects.filter(course=course, is_active=True).count()
-    if request.user.role == User.Role.STUDENT and not enrolled:
-        videos = course.videos.none()
-        video_count = course.videos.count()
-    else:
-        videos = course.videos.prefetch_related('quizzes')
-        video_count = videos.count()
-
-    # Determine if course is locked for this instructor (1 video + study material uploaded)
-    course_locked = False
-    if request.user.role == User.Role.INSTRUCTOR:
-        if videos.exists() and videos.first().english_transcript:
-            course_locked = True
-
-    return render(request, 'courses/course_detail.html', {
-        'course':          course,
-        'videos':          videos,
-        'video_count':     video_count,
-        'trainee_count':   trainee_count,
-        'enrolled':        enrolled,
-        'access_request':  access_request,
-        'course_locked':   course_locked,
-        'chatbot_course_id': course.id if enrolled else 0,
-        'chatbot_courses':   [{'id': course.id, 'title': course.title}] if enrolled else [],
-        'chatbot_enrolled':  enrolled,
-    })
+    return render(request, 'courses/course_detail.html', _build_course_detail_context(request, course))
 
 
 @role_required(User.Role.ADMIN, User.Role.INSTRUCTOR, message='Trainers and admins only.')
@@ -323,29 +330,48 @@ def request_course_access(request, course_id):
         messages.info(request, f'You already have access to {course.title}.')
         return redirect('course-detail', course_id=course.id)
 
-    access_request, created = EnrollmentRequest.objects.get_or_create(
-        student=request.user,
-        course=course,
-    )
-    if created:
+    access_request = EnrollmentRequest.objects.filter(student=request.user, course=course).first()
+    if access_request and access_request.status == EnrollmentRequest.Status.PENDING:
+        messages.info(request, f'Your access request for {course.title} is already pending.')
+        return redirect('course-detail', course_id=course.id)
+
+    form = EnrollmentRequestForm(request.POST, instance=access_request)
+    if not form.is_valid():
+        messages.error(request, 'Please add a reason so the admin can review your request.')
+        return render(
+            request,
+            'courses/course_detail.html',
+            _build_course_detail_context(request, course, access_request_form=form),
+        )
+
+    access_request = form.save(commit=False)
+    access_request.student = request.user
+    access_request.course = course
+    access_request.status = EnrollmentRequest.Status.PENDING
+    access_request.reviewed_at = None
+    access_request.reviewed_by = None
+    access_request.admin_note = ''
+    if access_request.pk:
+        access_request.requested_at = timezone.now()
+        access_request.save(
+            update_fields=[
+                'request_reason',
+                'status',
+                'requested_at',
+                'reviewed_at',
+                'reviewed_by',
+                'admin_note',
+            ]
+        )
+        messages.success(
+            request,
+            f'Access request updated for {course.title}. An admin will review it shortly.',
+        )
+    else:
+        access_request.save()
         messages.success(
             request,
             f'Access request sent for {course.title}. An admin will review it shortly.',
-        )
-    elif access_request.status == EnrollmentRequest.Status.PENDING:
-        messages.info(request, f'Your access request for {course.title} is already pending.')
-    else:
-        access_request.status = EnrollmentRequest.Status.PENDING
-        access_request.requested_at = timezone.now()
-        access_request.reviewed_at = None
-        access_request.reviewed_by = None
-        access_request.admin_note = ''
-        access_request.save(
-            update_fields=['status', 'requested_at', 'reviewed_at', 'reviewed_by', 'admin_note']
-        )
-        messages.success(
-            request,
-            f'Access request resubmitted for {course.title}. An admin will review it shortly.',
         )
     return redirect('course-detail', course_id=course.id)
 
@@ -393,6 +419,7 @@ def review_enrollment_request(request, request_id):
         id=request_id,
     )
     action = (request.POST.get('action') or '').strip().lower()
+    admin_note = (request.POST.get('admin_note') or '').strip()
     redirect_status = (request.POST.get('status') or EnrollmentRequest.Status.PENDING).strip().lower()
     if redirect_status not in {
         EnrollmentRequest.Status.PENDING,
@@ -402,6 +429,9 @@ def review_enrollment_request(request, request_id):
         redirect_status = EnrollmentRequest.Status.PENDING
 
     if action == 'approve':
+        if not admin_note:
+            messages.error(request, 'Add a reason before approving course access.')
+            return redirect(f"{reverse('manage-enrollment-requests')}?status={redirect_status}")
         enrollment, _ = Enrollment.objects.get_or_create(
             student=access_request.student,
             course=access_request.course,
@@ -412,7 +442,7 @@ def review_enrollment_request(request, request_id):
         access_request.status = EnrollmentRequest.Status.APPROVED
         access_request.reviewed_at = timezone.now()
         access_request.reviewed_by = request.user
-        access_request.admin_note = 'Access granted by admin.'
+        access_request.admin_note = admin_note
         access_request.save(
             update_fields=['status', 'reviewed_at', 'reviewed_by', 'admin_note']
         )
@@ -422,10 +452,13 @@ def review_enrollment_request(request, request_id):
         )
         redirect_status = EnrollmentRequest.Status.PENDING
     elif action == 'reject':
+        if not admin_note:
+            messages.error(request, 'Add a reason before rejecting the access request.')
+            return redirect(f"{reverse('manage-enrollment-requests')}?status={redirect_status}")
         access_request.status = EnrollmentRequest.Status.REJECTED
         access_request.reviewed_at = timezone.now()
         access_request.reviewed_by = request.user
-        access_request.admin_note = 'Access request declined by admin.'
+        access_request.admin_note = admin_note
         access_request.save(
             update_fields=['status', 'reviewed_at', 'reviewed_by', 'admin_note']
         )

@@ -171,21 +171,44 @@ class CourseAccessRequestTests(TestCase):
     def test_student_can_submit_course_access_request(self):
         self.client.force_login(self.student)
 
-        response = self.client.post(reverse('request-course-access', args=[self.course.id]))
+        response = self.client.post(
+            reverse('request-course-access', args=[self.course.id]),
+            {'request_reason': 'I need this course to complete my Python training plan.'},
+        )
 
         self.assertRedirects(response, reverse('course-detail', args=[self.course.id]))
         access_request = EnrollmentRequest.objects.get(student=self.student, course=self.course)
         self.assertEqual(access_request.status, EnrollmentRequest.Status.PENDING)
+        self.assertEqual(
+            access_request.request_reason,
+            'I need this course to complete my Python training plan.',
+        )
 
         follow_up = self.client.get(reverse('course-detail', args=[self.course.id]))
         self.assertContains(follow_up, 'pending admin approval')
         self.assertContains(follow_up, 'Request Pending')
+        self.assertContains(follow_up, 'I need this course to complete my Python training plan.')
+
+    def test_student_must_provide_reason_for_course_access_request(self):
+        self.client.force_login(self.student)
+
+        response = self.client.post(
+            reverse('request-course-access', args=[self.course.id]),
+            {'request_reason': '   '},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Please provide a reason for requesting access.')
+        self.assertFalse(
+            EnrollmentRequest.objects.filter(student=self.student, course=self.course).exists()
+        )
 
     def test_student_course_list_shows_pending_request_state(self):
         EnrollmentRequest.objects.create(
             student=self.student,
             course=self.course,
             status=EnrollmentRequest.Status.PENDING,
+            request_reason='Need access for next module.',
         )
         self.client.force_login(self.student)
 
@@ -198,12 +221,17 @@ class CourseAccessRequestTests(TestCase):
             student=self.student,
             course=self.course,
             status=EnrollmentRequest.Status.PENDING,
+            request_reason='Need access for project preparation.',
         )
         self.client.force_login(self.admin)
 
         response = self.client.post(
             reverse('review-enrollment-request', args=[access_request.id]),
-            {'action': 'approve', 'status': EnrollmentRequest.Status.PENDING},
+            {
+                'action': 'approve',
+                'status': EnrollmentRequest.Status.PENDING,
+                'admin_note': 'Approved because the trainee is part of the current intake.',
+            },
         )
 
         self.assertRedirects(
@@ -213,7 +241,40 @@ class CourseAccessRequestTests(TestCase):
         )
         access_request.refresh_from_db()
         self.assertEqual(access_request.status, EnrollmentRequest.Status.APPROVED)
+        self.assertEqual(
+            access_request.admin_note,
+            'Approved because the trainee is part of the current intake.',
+        )
         self.assertTrue(
+            Enrollment.objects.filter(student=self.student, course=self.course, is_active=True).exists()
+        )
+
+    def test_admin_must_add_reason_before_approving_access_request(self):
+        access_request = EnrollmentRequest.objects.create(
+            student=self.student,
+            course=self.course,
+            status=EnrollmentRequest.Status.PENDING,
+            request_reason='Need access for project preparation.',
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('review-enrollment-request', args=[access_request.id]),
+            {
+                'action': 'approve',
+                'status': EnrollmentRequest.Status.PENDING,
+                'admin_note': '   ',
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            f"{reverse('manage-enrollment-requests')}?status=pending",
+            fetch_redirect_response=False,
+        )
+        access_request.refresh_from_db()
+        self.assertEqual(access_request.status, EnrollmentRequest.Status.PENDING)
+        self.assertFalse(
             Enrollment.objects.filter(student=self.student, course=self.course, is_active=True).exists()
         )
 
@@ -222,12 +283,17 @@ class CourseAccessRequestTests(TestCase):
             student=self.student,
             course=self.course,
             status=EnrollmentRequest.Status.PENDING,
+            request_reason='Need access but missing prerequisites right now.',
         )
         self.client.force_login(self.admin)
 
         response = self.client.post(
             reverse('review-enrollment-request', args=[access_request.id]),
-            {'action': 'reject', 'status': EnrollmentRequest.Status.PENDING},
+            {
+                'action': 'reject',
+                'status': EnrollmentRequest.Status.PENDING,
+                'admin_note': 'Rejected because the trainee must finish the beginner course first.',
+            },
         )
 
         self.assertRedirects(
@@ -237,15 +303,24 @@ class CourseAccessRequestTests(TestCase):
         )
         access_request.refresh_from_db()
         self.assertEqual(access_request.status, EnrollmentRequest.Status.REJECTED)
+        self.assertEqual(
+            access_request.admin_note,
+            'Rejected because the trainee must finish the beginner course first.',
+        )
         self.assertFalse(
             Enrollment.objects.filter(student=self.student, course=self.course, is_active=True).exists()
         )
+
+        self.client.force_login(self.student)
+        follow_up = self.client.get(reverse('course-detail', args=[self.course.id]))
+        self.assertContains(follow_up, 'Rejected because the trainee must finish the beginner course first.')
 
     def test_admin_request_queue_lists_pending_requests(self):
         EnrollmentRequest.objects.create(
             student=self.student,
             course=self.course,
             status=EnrollmentRequest.Status.PENDING,
+            request_reason='Please approve this so I can join the upcoming batch.',
         )
         self.client.force_login(self.admin)
 
@@ -255,6 +330,8 @@ class CourseAccessRequestTests(TestCase):
         self.assertContains(response, 'Course Access Requests')
         self.assertContains(response, self.student.username)
         self.assertContains(response, self.course.title)
+        self.assertContains(response, 'Please approve this so I can join the upcoming batch.')
+        self.assertContains(response, 'Reason for your decision')
 
 
 class AdminCourseManagementViewTests(TestCase):

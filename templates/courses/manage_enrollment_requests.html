@@ -9,7 +9,7 @@
       <span class="hero-kicker"><i class="bi bi-person-check"></i> Approval queue</span>
       <h1 class="hero-title">Course Access Requests</h1>
       <p class="hero-copy">
-        Review trainee requests for locked course access. Approved requests create the enrollment automatically.
+        Review trainee requests for locked course access, including the learner's reason and your own approval note.
       </p>
     </div>
     <div class="col-lg-4">
@@ -65,9 +65,11 @@
           <tr>
             <th>Trainee</th>
             <th>Course</th>
+            <th>Request Reason</th>
             <th>Status</th>
             <th>Requested</th>
             <th>Reviewed</th>
+            <th>Admin Note</th>
             <th class="text-end">Action</th>
           </tr>
         </thead>
@@ -81,6 +83,13 @@
             <td>
               <div class="fw-semibold">{{ access_request.course.title }}</div>
               <div class="text-muted small">{{ access_request.course.get_language_display }}</div>
+            </td>
+            <td class="small">
+              {% if access_request.request_reason %}
+                {{ access_request.request_reason|linebreaksbr }}
+              {% else %}
+                <span class="text-muted">No reason submitted.</span>
+              {% endif %}
             </td>
             <td>
               {% if access_request.status == 'approved' %}
@@ -102,31 +111,39 @@
                 —
               {% endif %}
             </td>
-            <td class="text-end">
+            <td class="small">
               {% if access_request.status == 'pending' %}
-                <div class="d-flex justify-content-end gap-2 flex-wrap">
-                  <form method="post" action="{% url 'review-enrollment-request' access_request.id %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="approve">
-                    <input type="hidden" name="status" value="{{ status_filter }}">
-                    <button type="submit" class="btn btn-success btn-sm">
+                <form method="post" action="{% url 'review-enrollment-request' access_request.id %}" class="d-grid gap-2">
+                  {% csrf_token %}
+                  <input type="hidden" name="status" value="{{ status_filter }}">
+                  <label for="admin-note-{{ access_request.id }}" class="form-label fw-semibold small mb-1">
+                    Reason for your decision
+                  </label>
+                  <textarea
+                    id="admin-note-{{ access_request.id }}"
+                    name="admin_note"
+                    rows="3"
+                    class="form-control form-control-sm"
+                    placeholder="Explain why access is being approved or declined."></textarea>
+                  <div class="d-flex justify-content-end gap-2 flex-wrap">
+                    <button type="submit" name="action" value="approve" class="btn btn-success btn-sm">
                       <i class="bi bi-check-circle me-1"></i>Approve
                     </button>
-                  </form>
-                  <form method="post" action="{% url 'review-enrollment-request' access_request.id %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="reject">
-                    <input type="hidden" name="status" value="{{ status_filter }}">
-                    <button type="submit" class="btn btn-outline-warning btn-sm">
+                    <button type="submit" name="action" value="reject" class="btn btn-outline-warning btn-sm">
                       <i class="bi bi-x-circle me-1"></i>Reject
                     </button>
-                  </form>
-                </div>
+                  </div>
+                </form>
+              {% elif access_request.admin_note %}
+                {{ access_request.admin_note|linebreaksbr }}
               {% else %}
-                <a href="{% url 'course-detail' access_request.course.id %}" class="btn btn-outline-primary btn-sm">
-                  View Course
-                </a>
+                <span class="text-muted">No admin note recorded.</span>
               {% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{% url 'course-detail' access_request.course.id %}" class="btn btn-outline-primary btn-sm">
+                View Course
+              </a>
             </td>
           </tr>
           {% endfor %}

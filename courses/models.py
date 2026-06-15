@@ -65,6 +65,7 @@ class EnrollmentRequest(models.Model):
         choices=Status.choices,
         default=Status.PENDING,
     )
+    request_reason = models.TextField(blank=True)
     requested_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(blank=True, null=True)
     reviewed_by = models.ForeignKey(
@@ -75,7 +76,7 @@ class EnrollmentRequest(models.Model):
         null=True,
         limit_choices_to={'role': 'admin'},
     )
-    admin_note = models.CharField(max_length=255, blank=True)
+    admin_note = models.TextField(blank=True)
 
     class Meta:
         unique_together = ('student', 'course')

@@ -114,12 +114,9 @@
             {% if course.access_request_status == 'pending' %}
               <button type="button" class="btn btn-sm btn-outline-secondary" disabled>Request Pending</button>
             {% else %}
-              <form method="post" action="{% url 'request-course-access' course.id %}">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-success">
-                  {% if course.access_request_status == 'rejected' %}Request Again{% else %}Request Access{% endif %}
-                </button>
-              </form>
+              <a href="{% url 'course-detail' course.id %}" class="btn btn-sm btn-success">
+                {% if course.access_request_status == 'rejected' %}Update Request{% else %}Request Access{% endif %}
+              </a>
             {% endif %}
           {% endif %}
           {% if user.role == 'instructor' %}
