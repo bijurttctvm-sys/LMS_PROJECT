@@ -1,4 +1,5 @@
 import json
+import re
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -372,3 +373,46 @@ class LearningAssistantVoiceInputTests(TestCase):
         self.assertContains(response, "chatCancelRequest")
         self.assertContains(response, "AbortController")
         self.assertContains(response, "language:  chatLang")
+
+    def test_student_dashboard_renders_chatbot_csrf_token_for_ajax(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.student)
+
+        dashboard_response = csrf_client.get("/student-dashboard/")
+
+        self.assertEqual(dashboard_response.status_code, 200)
+        self.assertContains(dashboard_response, 'id="chatbot-csrf-token"')
+        self.assertContains(dashboard_response, 'name="csrfmiddlewaretoken"')
+
+        html = dashboard_response.content.decode("utf-8")
+        match = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', html)
+        self.assertIsNotNone(match)
+        csrf_token = match.group(1)
+
+        fake_chunks = [
+            {"text": "Python is a language", "video_id": 1,
+             "start": 0.0, "end": 5.0, "score": 0.9}
+        ]
+        with patch("utils.embeddings.generate_query_embedding",
+                   return_value=[0.1] * 1024), \
+             patch("utils.pinecone_client.search_chunks",
+                   return_value=fake_chunks), \
+             patch("utils.groq_llm.get_answer",
+                   return_value="Python is a general-purpose language."), \
+             patch("utils.redis_cache.get_cached_result", return_value=None), \
+             patch("utils.redis_cache.set_cached_result"):
+            query_response = csrf_client.post(
+                "/chatbot/query/",
+                data=json.dumps({
+                    "query": "what is python",
+                    "course_id": self.course.id,
+                }),
+                content_type="application/json",
+                HTTP_X_CSRFTOKEN=csrf_token,
+            )
+
+        self.assertEqual(query_response.status_code, 200)
+        self.assertEqual(
+            json.loads(query_response.content)["answer"],
+            "Python is a general-purpose language.",
+        )

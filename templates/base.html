@@ -1477,6 +1477,11 @@
 {% if chatbot_courses %}
 {{ chatbot_courses|json_script:"chatbot-courses-data" }}
 {% endif %}
+{% if user.is_authenticated and user.role == 'student' and chatbot_enrolled %}
+<form id="chatbot-csrf-token" class="d-none" aria-hidden="true">
+  {% csrf_token %}
+</form>
+{% endif %}
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -1514,7 +1519,6 @@ if (overlay) {
 {% if user.is_authenticated and user.role == 'student' and chatbot_enrolled %}
 /* ── Chatbot ────────────────────────────────────────────────────────────────── */
 const CHATBOT_COURSE_ID = {{ chatbot_course_id|default:0 }};
-const CHATBOT_CSRF      = '{{ csrf_token }}';
 const chatCoursesNode   = document.getElementById('chatbot-courses-data');
 const CHATBOT_COURSES   = chatCoursesNode ? JSON.parse(chatCoursesNode.textContent) : [];
 
@@ -1527,6 +1531,42 @@ let chatListening = false;
 let chatSpeechDraft = '';
 let chatPendingRequest = false;
 let chatRequestController = null;
+
+function chatCsrfToken() {
+  const tokenInput = document.querySelector('#chatbot-csrf-token input[name="csrfmiddlewaretoken"]');
+  return tokenInput ? tokenInput.value : '';
+}
+
+async function chatParseResponse(resp, fallbackMessage) {
+  const contentType = (resp.headers.get('content-type') || '').toLowerCase();
+  if (contentType.includes('application/json')) {
+    const data = await resp.json();
+    return {
+      data,
+      error: data && data.error ? data.error : fallbackMessage,
+    };
+  }
+
+  const responseText = await resp.text();
+  let errorMessage = fallbackMessage;
+
+  if (resp.status === 403 && /csrf/i.test(responseText)) {
+    errorMessage = 'Your session expired. Refresh the page and try again.';
+  } else if (resp.status === 403) {
+    errorMessage = 'You do not have access to use the Learning Assistant here.';
+  } else if (resp.status === 404) {
+    errorMessage = 'Learning Assistant endpoint not found.';
+  } else if (resp.status >= 500) {
+    errorMessage = 'Learning Assistant is temporarily unavailable. Please try again shortly.';
+  } else if (resp.status >= 400) {
+    errorMessage = `Request failed (${resp.status}). Please try again.`;
+  }
+
+  return {
+    data: null,
+    error: errorMessage,
+  };
+}
 
 function chatToggle() {
   chatOpen = !chatOpen;
@@ -1782,20 +1822,23 @@ async function chatRequestVoiceReply(text, language, bubble) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRFToken': CHATBOT_CSRF,
+        'X-CSRFToken': chatCsrfToken(),
       },
       body: JSON.stringify({
         text: text,
         language: language || chatLang,
       }),
     });
-    const data = await resp.json();
+    const { data, error } = await chatParseResponse(
+      resp,
+      'Voice reply is unavailable right now.',
+    );
 
     note.remove();
-    if (!resp.ok || !data.audio) {
+    if (!resp.ok || !data || !data.audio) {
       const fallback = document.createElement('div');
       fallback.className = 'text-muted small mt-2';
-      fallback.textContent = data.error || 'Voice reply is unavailable right now.';
+      fallback.textContent = error;
       bubble.appendChild(fallback);
       return;
     }
@@ -1863,7 +1906,7 @@ async function chatSend() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRFToken':   CHATBOT_CSRF,
+        'X-CSRFToken':   chatCsrfToken(),
       },
       signal: chatRequestController.signal,
       body: JSON.stringify({
@@ -1876,11 +1919,14 @@ async function chatSend() {
     });
 
     chatHideTyping();
-    const data = await resp.json();
+    const { data, error } = await chatParseResponse(
+      resp,
+      'Learning Assistant is unavailable right now.',
+    );
 
-    if (!resp.ok) {
+    if (!resp.ok || !data) {
       chatAppend('<i class="bi bi-exclamation-circle me-1"></i>' +
-                 (data.error || 'Something went wrong.'), 'error');
+                 error, 'error');
     } else {
       /* Build bot bubble */
       let html = `<div>${data.answer || '(no answer)'}</div>`;
@@ -1904,7 +1950,11 @@ async function chatSend() {
     if (err && err.name === 'AbortError') {
       chatSetMicStatus('Query cancelled.');
     } else {
-      chatAppend('<i class="bi bi-wifi-off me-1"></i>Network error. Please try again.', 'error');
+      chatAppend(
+        '<i class="bi bi-wifi-off me-1"></i>' +
+        ((err && err.message) || 'Network error. Please try again.'),
+        'error'
+      );
     }
   } finally {
     chatPendingRequest = false;
