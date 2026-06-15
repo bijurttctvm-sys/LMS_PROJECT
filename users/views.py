@@ -237,9 +237,13 @@ def register_view(request):
     if request.method == 'POST':
         form = RegisterForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Account created. Please log in.')
-            return redirect('login')
+            user = form.save()
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            messages.success(
+                request,
+                'Trainee account created. You can now browse courses and request access.',
+            )
+            return redirect('course-list')
     else:
         form = RegisterForm()
     context = {'form': form}
@@ -452,6 +456,7 @@ def instructor_dashboard(request):
 @role_required(User.Role.ADMIN)
 def admin_dashboard(request):
     from doubt_sessions.models import DoubtSession
+    from courses.models import EnrollmentRequest
     from videos.models import Video
 
     Video.objects.filter(
@@ -477,6 +482,12 @@ def admin_dashboard(request):
         from quizzes.models import QuizDraft
         stats['pending_quizzes'] = QuizDraft.objects.filter(
             status=QuizDraft.Status.PENDING
+        ).count()
+    except Exception:
+        pass
+    try:
+        stats['pending_enrollment_requests'] = EnrollmentRequest.objects.filter(
+            status=EnrollmentRequest.Status.PENDING
         ).count()
     except Exception:
         pass

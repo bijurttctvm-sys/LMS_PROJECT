@@ -47,6 +47,44 @@ class Enrollment(models.Model):
         return f'{self.student} in {self.course}'
 
 
+class EnrollmentRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='enrollment_requests',
+        limit_choices_to={'role': 'student'},
+    )
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollment_requests')
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    requested_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='reviewed_enrollment_requests',
+        blank=True,
+        null=True,
+        limit_choices_to={'role': 'admin'},
+    )
+    admin_note = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        unique_together = ('student', 'course')
+        ordering = ['status', '-requested_at']
+
+    def __str__(self):
+        return f'{self.student} requested {self.course} ({self.get_status_display()})'
+
+
 class Batch(models.Model):
     name = models.CharField(max_length=120, unique=True)
     description = models.TextField(blank=True)

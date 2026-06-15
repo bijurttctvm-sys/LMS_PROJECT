@@ -23,7 +23,7 @@
 
 {% if user.role == 'student' %}
   <div class="alert alert-info">
-    Browse all available courses here. Course content unlocks automatically once an admin enrolls you.
+    Browse all available courses here. Request access to any course, and the content unlocks once an admin approves you.
   </div>
 {% endif %}
 
@@ -37,6 +37,9 @@
     </a>
     <a href="{% url 'course-list' %}?manage=assign-student" class="btn btn-outline-success btn-sm">
       <i class="bi bi-people me-1"></i>Assign Trainees
+    </a>
+    <a href="{% url 'manage-enrollment-requests' %}" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-person-check me-1"></i>Course Access Requests
     </a>
   </div>
   {% if courses %}
@@ -93,16 +96,32 @@
           {% if user.role == 'student' %}
             {% if course.is_enrolled %}
               <span class="badge bg-success">Enrolled</span>
+            {% elif course.access_request_status == 'pending' %}
+              <span class="badge bg-primary">Request Pending</span>
+            {% elif course.access_request_status == 'rejected' %}
+              <span class="badge bg-warning text-dark">Request Again</span>
             {% else %}
-              <span class="badge bg-warning text-dark">Available to enroll</span>
+              <span class="badge bg-warning text-dark">Request Access</span>
             {% endif %}
           {% endif %}
           {% if course.instructor %}
             <span class="badge bg-light text-dark">{{ course.instructor.username }}</span>
           {% endif %}
         </div>
-        <div class="card-footer d-flex gap-2">
+        <div class="card-footer d-flex gap-2 flex-wrap">
           <a href="{% url 'course-detail' course.id %}" class="btn btn-sm btn-outline-primary">View</a>
+          {% if user.role == 'student' and not course.is_enrolled %}
+            {% if course.access_request_status == 'pending' %}
+              <button type="button" class="btn btn-sm btn-outline-secondary" disabled>Request Pending</button>
+            {% else %}
+              <form method="post" action="{% url 'request-course-access' course.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-success">
+                  {% if course.access_request_status == 'rejected' %}Request Again{% else %}Request Access{% endif %}
+                </button>
+              </form>
+            {% endif %}
+          {% endif %}
           {% if user.role == 'instructor' %}
             <a href="{% url 'upload-video' %}?course={{ course.id }}" class="btn btn-sm btn-outline-success">Upload Content</a>
           {% endif %}

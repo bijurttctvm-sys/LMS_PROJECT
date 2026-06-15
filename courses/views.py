@@ -5,11 +5,13 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Exists, OuterRef, Q
 from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from users.decorators import role_required
 from users.models import User
 from .forms import BatchForm, CourseForm
-from .models import Batch, BatchCourse, BatchStudent, Course, Enrollment
+from .models import Batch, BatchCourse, BatchStudent, Course, Enrollment, EnrollmentRequest
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +66,24 @@ def _sync_batch_course_enrollments(batch, course):
             enrollment.save(update_fields=['is_active'])
 
 
+def _attach_student_access_request_status(student, courses):
+    course_ids = [course.id for course in courses]
+    if not course_ids:
+        return courses
+
+    request_status_by_course = dict(
+        EnrollmentRequest.objects.filter(
+            student=student,
+            course_id__in=course_ids,
+        ).values_list('course_id', 'status')
+    )
+    for course in courses:
+        course.access_request_status = ''
+        if not getattr(course, 'is_enrolled', False):
+            course.access_request_status = request_status_by_course.get(course.id, '')
+    return courses
+
+
 @login_required
 def course_list(request):
     courses = Course.objects.filter(is_active=True).select_related('instructor')
@@ -74,7 +94,8 @@ def course_list(request):
             course_id=OuterRef('pk'),
             is_active=True,
         )
-        courses = courses.annotate(is_enrolled=Exists(enrollment_qs))
+        courses = list(courses.annotate(is_enrolled=Exists(enrollment_qs)))
+        _attach_student_access_request_status(request.user, courses)
     elif request.user.role == User.Role.INSTRUCTOR:
         courses = courses.filter(instructor=request.user)
     elif request.user.role == User.Role.ADMIN:
@@ -111,6 +132,14 @@ def course_detail(request, course_id):
             student=request.user, course=course, is_active=True
         ).exists()
     )
+    access_request = None
+    if request.user.role == User.Role.STUDENT and not enrolled:
+        access_request = (
+            EnrollmentRequest.objects
+            .filter(student=request.user, course=course)
+            .select_related('reviewed_by')
+            .first()
+        )
     trainee_count = Enrollment.objects.filter(course=course, is_active=True).count()
     if request.user.role == User.Role.STUDENT and not enrolled:
         videos = course.videos.none()
@@ -131,6 +160,7 @@ def course_detail(request, course_id):
         'video_count':     video_count,
         'trainee_count':   trainee_count,
         'enrolled':        enrolled,
+        'access_request':  access_request,
         'course_locked':   course_locked,
         'chatbot_course_id': course.id if enrolled else 0,
         'chatbot_courses':   [{'id': course.id, 'title': course.title}] if enrolled else [],
@@ -192,6 +222,12 @@ def enroll_student(request, course_id):
         )
         enrollment.is_active = True
         enrollment.save(update_fields=['is_active'])
+        EnrollmentRequest.objects.filter(student=student, course=course).update(
+            status=EnrollmentRequest.Status.APPROVED,
+            reviewed_at=timezone.now(),
+            reviewed_by_id=request.user.id,
+            admin_note='Approved from direct admin enrollment.',
+        )
         messages.success(request, f'{student.username} enrolled in {course.title}.')
         return redirect(f"{reverse('course-list')}?manage=assign-student")
     students = User.objects.filter(role=User.Role.STUDENT)
@@ -277,6 +313,131 @@ def delete_course(request, course_id):
         'video_count':       video_count,
         'enrollment_count':  enrollment_count,
     })
+
+
+@role_required(User.Role.STUDENT, message='Trainee access required.')
+@require_POST
+def request_course_access(request, course_id):
+    course = get_object_or_404(Course, id=course_id, is_active=True)
+    if Enrollment.objects.filter(student=request.user, course=course, is_active=True).exists():
+        messages.info(request, f'You already have access to {course.title}.')
+        return redirect('course-detail', course_id=course.id)
+
+    access_request, created = EnrollmentRequest.objects.get_or_create(
+        student=request.user,
+        course=course,
+    )
+    if created:
+        messages.success(
+            request,
+            f'Access request sent for {course.title}. An admin will review it shortly.',
+        )
+    elif access_request.status == EnrollmentRequest.Status.PENDING:
+        messages.info(request, f'Your access request for {course.title} is already pending.')
+    else:
+        access_request.status = EnrollmentRequest.Status.PENDING
+        access_request.requested_at = timezone.now()
+        access_request.reviewed_at = None
+        access_request.reviewed_by = None
+        access_request.admin_note = ''
+        access_request.save(
+            update_fields=['status', 'requested_at', 'reviewed_at', 'reviewed_by', 'admin_note']
+        )
+        messages.success(
+            request,
+            f'Access request resubmitted for {course.title}. An admin will review it shortly.',
+        )
+    return redirect('course-detail', course_id=course.id)
+
+
+@role_required(User.Role.ADMIN, message='Admin access required.')
+def manage_enrollment_requests(request):
+    status_filter = (request.GET.get('status') or EnrollmentRequest.Status.PENDING).strip().lower()
+    allowed_statuses = {
+        EnrollmentRequest.Status.PENDING,
+        EnrollmentRequest.Status.APPROVED,
+        EnrollmentRequest.Status.REJECTED,
+    }
+    if status_filter not in allowed_statuses:
+        status_filter = EnrollmentRequest.Status.PENDING
+
+    requests_qs = (
+        EnrollmentRequest.objects
+        .select_related('student', 'course', 'reviewed_by')
+        .order_by('status', '-requested_at')
+    )
+    filtered_requests = requests_qs.filter(status=status_filter)
+    counts = {
+        EnrollmentRequest.Status.PENDING: requests_qs.filter(
+            status=EnrollmentRequest.Status.PENDING
+        ).count(),
+        EnrollmentRequest.Status.APPROVED: requests_qs.filter(
+            status=EnrollmentRequest.Status.APPROVED
+        ).count(),
+        EnrollmentRequest.Status.REJECTED: requests_qs.filter(
+            status=EnrollmentRequest.Status.REJECTED
+        ).count(),
+    }
+    return render(request, 'courses/manage_enrollment_requests.html', {
+        'access_requests': filtered_requests,
+        'status_filter': status_filter,
+        'request_counts': counts,
+    })
+
+
+@role_required(User.Role.ADMIN, message='Admin access required.')
+@require_POST
+def review_enrollment_request(request, request_id):
+    access_request = get_object_or_404(
+        EnrollmentRequest.objects.select_related('student', 'course'),
+        id=request_id,
+    )
+    action = (request.POST.get('action') or '').strip().lower()
+    redirect_status = (request.POST.get('status') or EnrollmentRequest.Status.PENDING).strip().lower()
+    if redirect_status not in {
+        EnrollmentRequest.Status.PENDING,
+        EnrollmentRequest.Status.APPROVED,
+        EnrollmentRequest.Status.REJECTED,
+    }:
+        redirect_status = EnrollmentRequest.Status.PENDING
+
+    if action == 'approve':
+        enrollment, _ = Enrollment.objects.get_or_create(
+            student=access_request.student,
+            course=access_request.course,
+        )
+        if not enrollment.is_active:
+            enrollment.is_active = True
+            enrollment.save(update_fields=['is_active'])
+        access_request.status = EnrollmentRequest.Status.APPROVED
+        access_request.reviewed_at = timezone.now()
+        access_request.reviewed_by = request.user
+        access_request.admin_note = 'Access granted by admin.'
+        access_request.save(
+            update_fields=['status', 'reviewed_at', 'reviewed_by', 'admin_note']
+        )
+        messages.success(
+            request,
+            f'Access granted: {access_request.student.username} can now open {access_request.course.title}.',
+        )
+        redirect_status = EnrollmentRequest.Status.PENDING
+    elif action == 'reject':
+        access_request.status = EnrollmentRequest.Status.REJECTED
+        access_request.reviewed_at = timezone.now()
+        access_request.reviewed_by = request.user
+        access_request.admin_note = 'Access request declined by admin.'
+        access_request.save(
+            update_fields=['status', 'reviewed_at', 'reviewed_by', 'admin_note']
+        )
+        messages.warning(
+            request,
+            f'Access request declined for {access_request.student.username} on {access_request.course.title}.',
+        )
+        redirect_status = EnrollmentRequest.Status.PENDING
+    else:
+        messages.error(request, 'Choose a valid review action for the access request.')
+
+    return redirect(f"{reverse('manage-enrollment-requests')}?status={redirect_status}")
 
 
 @login_required

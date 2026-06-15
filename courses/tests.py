@@ -7,7 +7,7 @@ from django.urls import reverse
 from doubt_sessions.models import DoubtSession
 from videos.models import Video
 
-from .models import Batch, BatchCourse, BatchStudent, Course, Enrollment
+from .models import Batch, BatchCourse, BatchStudent, Course, Enrollment, EnrollmentRequest
 
 
 User = get_user_model()
@@ -126,7 +126,7 @@ class StudentCourseBrowseTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Enrolled Course')
         self.assertContains(response, 'Available Course')
-        self.assertContains(response, 'Available to enroll')
+        self.assertContains(response, 'Request Access')
 
     def test_student_can_view_unenrolled_course_without_accessing_content(self):
         self.client.force_login(self.student)
@@ -136,6 +136,125 @@ class StudentCourseBrowseTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Course content is locked')
         self.assertNotContains(response, 'Locked Lesson')
+
+
+class CourseAccessRequestTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='access_admin',
+            password='pass123',
+            role=User.Role.ADMIN,
+        )
+        self.instructor = User.objects.create_user(
+            username='access_trainer',
+            password='pass123',
+            role=User.Role.INSTRUCTOR,
+        )
+        self.student = User.objects.create_user(
+            username='access_student',
+            password='pass123',
+            role=User.Role.STUDENT,
+            email='access_student@example.com',
+        )
+        self.course = Course.objects.create(
+            title='Requested Course',
+            instructor=self.instructor,
+            is_active=True,
+        )
+        Video.objects.create(
+            course=self.course,
+            title='Protected Lesson',
+            status=Video.Status.READY,
+            english_transcript='Protected lesson notes',
+        )
+
+    def test_student_can_submit_course_access_request(self):
+        self.client.force_login(self.student)
+
+        response = self.client.post(reverse('request-course-access', args=[self.course.id]))
+
+        self.assertRedirects(response, reverse('course-detail', args=[self.course.id]))
+        access_request = EnrollmentRequest.objects.get(student=self.student, course=self.course)
+        self.assertEqual(access_request.status, EnrollmentRequest.Status.PENDING)
+
+        follow_up = self.client.get(reverse('course-detail', args=[self.course.id]))
+        self.assertContains(follow_up, 'pending admin approval')
+        self.assertContains(follow_up, 'Request Pending')
+
+    def test_student_course_list_shows_pending_request_state(self):
+        EnrollmentRequest.objects.create(
+            student=self.student,
+            course=self.course,
+            status=EnrollmentRequest.Status.PENDING,
+        )
+        self.client.force_login(self.student)
+
+        response = self.client.get(reverse('course-list'))
+
+        self.assertContains(response, 'Request Pending')
+
+    def test_admin_can_approve_course_access_request_and_create_enrollment(self):
+        access_request = EnrollmentRequest.objects.create(
+            student=self.student,
+            course=self.course,
+            status=EnrollmentRequest.Status.PENDING,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('review-enrollment-request', args=[access_request.id]),
+            {'action': 'approve', 'status': EnrollmentRequest.Status.PENDING},
+        )
+
+        self.assertRedirects(
+            response,
+            f"{reverse('manage-enrollment-requests')}?status=pending",
+            fetch_redirect_response=False,
+        )
+        access_request.refresh_from_db()
+        self.assertEqual(access_request.status, EnrollmentRequest.Status.APPROVED)
+        self.assertTrue(
+            Enrollment.objects.filter(student=self.student, course=self.course, is_active=True).exists()
+        )
+
+    def test_admin_can_reject_course_access_request(self):
+        access_request = EnrollmentRequest.objects.create(
+            student=self.student,
+            course=self.course,
+            status=EnrollmentRequest.Status.PENDING,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('review-enrollment-request', args=[access_request.id]),
+            {'action': 'reject', 'status': EnrollmentRequest.Status.PENDING},
+        )
+
+        self.assertRedirects(
+            response,
+            f"{reverse('manage-enrollment-requests')}?status=pending",
+            fetch_redirect_response=False,
+        )
+        access_request.refresh_from_db()
+        self.assertEqual(access_request.status, EnrollmentRequest.Status.REJECTED)
+        self.assertFalse(
+            Enrollment.objects.filter(student=self.student, course=self.course, is_active=True).exists()
+        )
+
+    def test_admin_request_queue_lists_pending_requests(self):
+        EnrollmentRequest.objects.create(
+            student=self.student,
+            course=self.course,
+            status=EnrollmentRequest.Status.PENDING,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('manage-enrollment-requests'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Course Access Requests')
+        self.assertContains(response, self.student.username)
+        self.assertContains(response, self.course.title)
 
 
 class AdminCourseManagementViewTests(TestCase):

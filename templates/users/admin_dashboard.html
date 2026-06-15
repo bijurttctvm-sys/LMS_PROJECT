@@ -21,6 +21,9 @@
         <a href="{% url 'course-list' %}?manage=edit" class="btn btn-outline-light btn-sm">
           <i class="bi bi-journal-bookmark me-1"></i>Course Management
         </a>
+        <a href="{% url 'manage-enrollment-requests' %}" class="btn btn-outline-light btn-sm">
+          <i class="bi bi-person-check me-1"></i>Course Access Requests
+        </a>
         <a href="{% url 'admin:index' %}" class="btn btn-outline-light btn-sm">
           <i class="bi bi-shield-lock me-1"></i>Django Admin
         </a>
@@ -234,6 +237,12 @@
         <a href="{% url 'course-list' %}?manage=edit" class="btn btn-outline-primary btn-sm text-start">
           <i class="bi bi-grid me-2"></i>Course Management
         </a>
+        <a href="{% url 'manage-enrollment-requests' %}" class="btn btn-outline-success btn-sm text-start">
+          <i class="bi bi-person-check me-2"></i>Review Course Access Requests
+          {% if stats.pending_enrollment_requests %}
+            <span class="badge text-bg-success ms-2">{{ stats.pending_enrollment_requests }}</span>
+          {% endif %}
+        </a>
         <a href="{% url 'admin:index' %}" class="btn btn-outline-secondary btn-sm text-start">
           <i class="bi bi-shield-lock me-2"></i>Django Admin Panel
         </a>
@@ -291,6 +300,10 @@
         <div class="d-flex justify-content-between">
           <span class="text-muted">Pending Drafts</span>
           <span class="fw-semibold {% if stats.pending_quizzes %}text-warning{% endif %}">{{ stats.pending_quizzes|default:"0" }}</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Pending Course Requests</span>
+          <span class="fw-semibold {% if stats.pending_enrollment_requests %}text-success{% endif %}">{{ stats.pending_enrollment_requests|default:"0" }}</span>
         </div>
       </div>
       <hr class="my-3">

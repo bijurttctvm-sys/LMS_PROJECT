@@ -79,10 +79,20 @@
     <i class="bi bi-patch-check-fill"></i>
     <span>You are enrolled in this course. All study material and quizzes are available to you.</span>
   </div>
+  {% elif access_request and access_request.status == 'pending' %}
+  <div class="alert alert-info py-2 d-flex align-items-center gap-2">
+    <i class="bi bi-hourglass-split flex-shrink-0"></i>
+    <span>Your course access request is pending admin approval.</span>
+  </div>
+  {% elif access_request and access_request.status == 'rejected' %}
+  <div class="alert alert-warning py-2 d-flex align-items-center gap-2">
+    <i class="bi bi-exclamation-triangle flex-shrink-0"></i>
+    <span>Your previous access request was declined. You can submit a fresh request below.</span>
+  </div>
   {% else %}
   <div class="alert alert-warning py-2 d-flex align-items-center gap-2">
     <i class="bi bi-lock-fill flex-shrink-0"></i>
-    <span>You are not enrolled in this course. Contact your admin to get access.</span>
+    <span>You are not enrolled in this course yet. Submit a request and an admin can approve your access.</span>
   </div>
   {% endif %}
 {% endif %}
@@ -109,10 +119,23 @@
     <div class="card-body text-center py-4">
       <i class="bi bi-lock-fill text-warning" style="font-size:2rem;"></i>
       <p class="fw-semibold mt-3 mb-1">Course content is locked</p>
-      <p class="text-muted small mb-0">
+      <p class="text-muted small mb-3">
         This course currently has {{ video_count }} study material item{{ video_count|pluralize }}.
-        Ask your admin to enroll you to open the videos, notes, and quizzes.
+        Request access here and the videos, notes, and quizzes will unlock once an admin approves it.
       </p>
+      {% if access_request and access_request.status == 'pending' %}
+        <button type="button" class="btn btn-outline-secondary btn-sm" disabled>
+          <i class="bi bi-hourglass-split me-1"></i>Request Pending
+        </button>
+      {% else %}
+        <form method="post" action="{% url 'request-course-access' course.id %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success btn-sm">
+            <i class="bi bi-person-check me-1"></i>
+            {% if access_request and access_request.status == 'rejected' %}Request Again{% else %}Request Course Access{% endif %}
+          </button>
+        </form>
+      {% endif %}
     </div>
   </div>
 {% elif videos %}

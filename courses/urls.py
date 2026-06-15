@@ -4,6 +4,8 @@ from . import views
 
 urlpatterns = [
     path("",                                     views.course_list,          name="course-list"),
+    path("access-requests/",                     views.manage_enrollment_requests, name="manage-enrollment-requests"),
+    path("access-requests/<int:request_id>/review/", views.review_enrollment_request, name="review-enrollment-request"),
     path("batches/",                             views.batch_list,           name="batch-list"),
     path("batches/create/",                      views.create_batch,         name="create-batch"),
     path("batches/<int:batch_id>/assign-students/", views.assign_students_to_batch, name="assign-students-to-batch"),
@@ -13,6 +15,7 @@ urlpatterns = [
     path("<int:course_id>/edit/",                views.edit_course,          name="edit-course"),
     path("<int:course_id>/",                     views.course_detail,        name="course-detail"),
     path("<int:course_id>/enroll/",              views.enroll_student,       name="enroll-student"),
+    path("<int:course_id>/request-access/",      views.request_course_access, name="request-course-access"),
     path("<int:course_id>/assign-instructor/",   views.assign_instructor,    name="assign-instructor"),
     path("<int:course_id>/delete-content/",      views.delete_course_content, name="delete-course-content"),
     path("<int:course_id>/delete/",              views.delete_course,        name="delete-course"),

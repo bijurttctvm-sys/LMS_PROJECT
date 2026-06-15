@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Course Access Requests — LMS{% endblock %}
+{% block page_title %}Course Access Requests{% endblock %}
+
+{% block content %}
+<div class="page-hero mb-4">
+  <div class="row g-4 align-items-end">
+    <div class="col-lg-8">
+      <span class="hero-kicker"><i class="bi bi-person-check"></i> Approval queue</span>
+      <h1 class="hero-title">Course Access Requests</h1>
+      <p class="hero-copy">
+        Review trainee requests for locked course access. Approved requests create the enrollment automatically.
+      </p>
+    </div>
+    <div class="col-lg-4">
+      <div class="hero-metrics">
+        <div class="hero-metric">
+          <div class="hero-metric-value">{{ request_counts.pending }}</div>
+          <div class="hero-metric-label">Pending</div>
+        </div>
+        <div class="hero-metric">
+          <div class="hero-metric-value">{{ request_counts.approved }}</div>
+          <div class="hero-metric-label">Approved</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex gap-2 flex-wrap mb-4">
+  <a href="{% url 'manage-enrollment-requests' %}?status=pending"
+     class="btn {% if status_filter == 'pending' %}btn-primary{% else %}btn-outline-primary{% endif %} btn-sm">
+    Pending ({{ request_counts.pending }})
+  </a>
+  <a href="{% url 'manage-enrollment-requests' %}?status=approved"
+     class="btn {% if status_filter == 'approved' %}btn-success{% else %}btn-outline-success{% endif %} btn-sm">
+    Approved ({{ request_counts.approved }})
+  </a>
+  <a href="{% url 'manage-enrollment-requests' %}?status=rejected"
+     class="btn {% if status_filter == 'rejected' %}btn-warning text-dark{% else %}btn-outline-warning{% endif %} btn-sm">
+    Rejected ({{ request_counts.rejected }})
+  </a>
+</div>
+
+<div class="section-card">
+  <div class="section-card-header">
+    <div>
+      <div class="section-kicker"><i class="bi bi-list-check"></i> Review requests</div>
+      <h2 class="section-title mb-0">
+        {% if status_filter == 'approved' %}
+          Approved Requests
+        {% elif status_filter == 'rejected' %}
+          Rejected Requests
+        {% else %}
+          Pending Requests
+        {% endif %}
+      </h2>
+    </div>
+  </div>
+
+  {% if access_requests %}
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Trainee</th>
+            <th>Course</th>
+            <th>Status</th>
+            <th>Requested</th>
+            <th>Reviewed</th>
+            <th class="text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for access_request in access_requests %}
+          <tr>
+            <td>
+              <div class="fw-semibold">{{ access_request.student.get_full_name|default:access_request.student.username }}</div>
+              <div class="text-muted small">{{ access_request.student.email|default:"No email" }}</div>
+            </td>
+            <td>
+              <div class="fw-semibold">{{ access_request.course.title }}</div>
+              <div class="text-muted small">{{ access_request.course.get_language_display }}</div>
+            </td>
+            <td>
+              {% if access_request.status == 'approved' %}
+                <span class="badge bg-success">Approved</span>
+              {% elif access_request.status == 'rejected' %}
+                <span class="badge bg-warning text-dark">Rejected</span>
+              {% else %}
+                <span class="badge bg-primary">Pending</span>
+              {% endif %}
+            </td>
+            <td class="text-muted small">{{ access_request.requested_at|date:"M j, Y g:i A" }}</td>
+            <td class="text-muted small">
+              {% if access_request.reviewed_at %}
+                {{ access_request.reviewed_at|date:"M j, Y g:i A" }}
+                {% if access_request.reviewed_by %}
+                  <div>by {{ access_request.reviewed_by.username }}</div>
+                {% endif %}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td class="text-end">
+              {% if access_request.status == 'pending' %}
+                <div class="d-flex justify-content-end gap-2 flex-wrap">
+                  <form method="post" action="{% url 'review-enrollment-request' access_request.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="approve">
+                    <input type="hidden" name="status" value="{{ status_filter }}">
+                    <button type="submit" class="btn btn-success btn-sm">
+                      <i class="bi bi-check-circle me-1"></i>Approve
+                    </button>
+                  </form>
+                  <form method="post" action="{% url 'review-enrollment-request' access_request.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="reject">
+                    <input type="hidden" name="status" value="{{ status_filter }}">
+                    <button type="submit" class="btn btn-outline-warning btn-sm">
+                      <i class="bi bi-x-circle me-1"></i>Reject
+                    </button>
+                  </form>
+                </div>
+              {% else %}
+                <a href="{% url 'course-detail' access_request.course.id %}" class="btn btn-outline-primary btn-sm">
+                  View Course
+                </a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <i class="bi bi-inbox"></i>
+      <p class="mt-3 mb-0">
+        {% if status_filter == 'approved' %}
+          No approved requests yet.
+        {% elif status_filter == 'rejected' %}
+          No rejected requests yet.
+        {% else %}
+          No pending course access requests right now.
+        {% endif %}
+      </p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

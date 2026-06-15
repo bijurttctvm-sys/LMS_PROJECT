@@ -161,6 +161,34 @@ class ChangePasswordViewTests(TestCase):
         self.assertContains(response, 'Your old password was entered incorrectly')
 
 
+class PublicRegistrationTests(TestCase):
+    def test_register_page_shows_password_rules(self):
+        response = self.client.get(reverse('register'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'Your password must be at least 8 characters long and include uppercase, lowercase, numeric, and special characters.',
+        )
+
+    def test_public_registration_creates_student_and_logs_them_in(self):
+        response = self.client.post(
+            reverse('register'),
+            {
+                'username': 'new_trainee',
+                'email': 'new_trainee@example.com',
+                'password1': 'StrongPass123!',
+                'password2': 'StrongPass123!',
+            },
+        )
+
+        self.assertRedirects(response, reverse('course-list'))
+        created_user = User.objects.get(username='new_trainee')
+        self.assertEqual(created_user.role, User.Role.STUDENT)
+        dashboard_response = self.client.get(reverse('course-list'))
+        self.assertEqual(dashboard_response.status_code, 200)
+
+
 @override_settings(LOGIN_FAILURE_LIMIT=2, LOGIN_LOCKOUT_SECONDS=60)
 class LoginRateLimitTests(TestCase):
     def setUp(self):

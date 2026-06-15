@@ -16,6 +16,13 @@
 
     <form method="post">
       {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger py-2" role="alert">
+          {% for err in form.non_field_errors %}
+            <div>{{ err }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
       {% for field in form %}
         <div class="mb-3">
           <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -25,6 +32,9 @@
                  class="form-control {% if field.errors %}is-invalid{% endif %}"
                  {% if field.field.widget.attrs.placeholder %}placeholder="{{ field.field.widget.attrs.placeholder }}"{% endif %}
                  {% if field.value %}value="{{ field.value }}"{% endif %}>
+          {% if field.help_text %}
+            <div class="form-text small">{{ field.help_text|safe }}</div>
+          {% endif %}
           {% for err in field.errors %}
             <div class="invalid-feedback">{{ err }}</div>
           {% endfor %}
